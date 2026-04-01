@@ -10,7 +10,10 @@ function App() {
   const [playerId, setPlayerId] = useState('');
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState('');
-  const [initialRoomId, setInitialRoomId] = useState('');
+  const [initialRoomId, setInitialRoomId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get('room') || '').toUpperCase();
+  });
   const [isKicked, setIsKicked] = useState(false);
   const [externalStroke, setExternalStroke] = useState(null);
 
@@ -21,9 +24,6 @@ function App() {
   const [clearTrigger, setClearTrigger] = useState(0);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const roomParam = params.get('room');
-    if (roomParam) setInitialRoomId(roomParam.toUpperCase());
 
     const onJoinSuccess = ({ room, playerId: pid }) => {
       setRoom(room);
