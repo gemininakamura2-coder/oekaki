@@ -4,7 +4,9 @@
   "description": "DrawDraw - Real-time drawing quiz app with Socket.io",
   "private": true,
   "scripts": {
+    "postinstall": "npm run install:all",
     "install:all": "cd server && npm install && cd ../client && npm install",
+    "build": "npm run build:client",
     "build:client": "cd client && npm run build",
     "build:all": "npm run build:client",
     "dev:server": "cd server && node index.js",
