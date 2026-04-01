@@ -30,6 +30,7 @@ function App() {
       setPlayerId(pid);
       setJoined(true);
       setIsKicked(false);
+      setInitialRoomId('');
       setError('');
     };
 
