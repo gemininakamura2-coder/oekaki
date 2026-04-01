@@ -3,6 +3,7 @@ import { socket } from './socket';
 import Lobby from './components/Lobby';
 import Canvas from './components/Canvas';
 import Toolbar from './components/Toolbar';
+import { QRCodeSVG } from 'qrcode.react';
 
 function App() {
   const [room, setRoom] = useState(null);
@@ -118,7 +119,7 @@ function App() {
     <div className="app">
       <div className="game-container">
         <div className="toolbar-area">
-          <Toolbar 
+          <Toolbar
             color={color} onColorChange={setColor}
             size={size} onSizeChange={setSize}
             tool={tool} onToolChange={setTool}
@@ -127,7 +128,7 @@ function App() {
         </div>
 
         <div className="white-panel canvas-area">
-          <Canvas 
+          <Canvas
             isPainter={true} color={color} size={size} tool={tool}
             onStrokeEmit={handleStrokeEmit}
             externalStroke={externalStroke}
@@ -141,13 +142,21 @@ function App() {
             <h2>ルーム: {room.id}</h2>
             <span className="badge">{room.status}</span>
           </div>
+
+          <div className="qr-container">
+            <p className="qr-hint">QRで募集</p>
+            <div className="qr-box">
+              <QRCodeSVG value={`${window.location.origin}/?room=${room.id}`} size={120} />
+            </div>
+            <p className="qr-url">またはURLを共有:<br />{`${window.location.origin}/?room=${room.id}`}</p>
+          </div>
           <div className="player-list-container">
             <h3>参加者一覧 ({room.players.length})</h3>
             <ul className="player-list">
               {room.players.map((player) => (
                 <li key={player.id} className="player-item">
                   <span className="player-name">
-                    {player.name} 
+                    {player.name}
                     {player.id === playerId && <span className="me-label">(あなた)</span>}
                   </span>
                   {isHost && player.id !== playerId && (
@@ -209,6 +218,10 @@ function App() {
           padding-bottom: 1rem;
         }
         .room-header h2 { margin: 0; font-size: 1.2rem; color: var(--color-primary); }
+        .qr-container { display: flex; flex-direction: column; align-items: center; padding: 12px; background: white; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; border: 1px dashed var(--border-color); }
+        .qr-hint { margin: 0 0 8px 0; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+        .qr-box { background: white; padding: 4px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .qr-url { margin: 8px 0 0 0; font-size: 0.7rem; color: var(--text-muted); word-break: break-all; }
         .badge {
           background: var(--color-primary-light);
           padding: 4px 10px;
