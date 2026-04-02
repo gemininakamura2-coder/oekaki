@@ -6,3 +6,6 @@ build/
 .DS_Store
 *.log
 coverage/
+
+# ドキュメント・タスク管理ファイル（ローカルのみ管理）
+/*.md
