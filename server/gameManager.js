@@ -2,6 +2,8 @@
  * DrawDraw Game Manager
  */
 
+const themes = require('./themes.json');
+
 const rooms = new Map();
 
 function generateRoomId() {
@@ -28,7 +30,18 @@ function createRoom(hostId, hostName) {
         isHost: true,
       },
     ],
-    strokes: [], // 描画履歴
+    // ゲーム進行管理
+    turnOrder: [hostId],       // 描画順 (player id の配列)
+    currentTurnIndex: 0,
+    currentWord: null,
+    currentPainterId: null,
+    round: 1,
+    totalRounds: 1,
+    timeLeft: 100,
+    timerInterval: null,
+    usedWords: [],             // 重複防止
+    // データ
+    strokes: [],               // 描画履歴
     gallery: [],
   };
   rooms.set(roomId, room);
@@ -51,6 +64,7 @@ function joinRoom(roomId, playerId, playerName) {
   };
 
   room.players.push(player);
+  room.turnOrder.push(playerId); // 描画順に追加
   return room;
 }
 
@@ -59,6 +73,7 @@ function leaveRoom(roomId, playerId) {
   if (!room) return null;
 
   room.players = room.players.filter((p) => p.id !== playerId);
+  room.turnOrder = room.turnOrder.filter((id) => id !== playerId);
 
   if (room.players.length === 0) {
     rooms.delete(roomId);
@@ -71,6 +86,24 @@ function leaveRoom(roomId, playerId) {
   }
 
   return room;
+}
+
+/**
+ * お題をランダムに選出する。
+ * 既出のお題 (usedWords) を除外し、全語使い切ったらリセット。
+ * @param {object} room
+ * @returns {string} 選ばれたお題
+ */
+function pickWord(room) {
+  let available = themes.filter((w) => !room.usedWords.includes(w));
+  if (available.length === 0) {
+    // 全語使い切ったらリセット
+    room.usedWords = [];
+    available = [...themes];
+  }
+  const word = available[Math.floor(Math.random() * available.length)];
+  room.usedWords.push(word);
+  return word;
 }
 
 function saveGalleryItem(roomId, painterName, word, imageData, wasGuessed) {
@@ -90,5 +123,6 @@ module.exports = {
   getRoom,
   joinRoom,
   leaveRoom,
+  pickWord,
   saveGalleryItem,
 };

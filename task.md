@@ -81,25 +81,23 @@
 
 ### Phase 4: ゲームロジック実装 (Game Mechanics)
 
-- [ ] [Backend] お題リスト (`themes.json`) 作成と選出ロジック
-    - **ファイル**: `server/themes.json` を新規作成
-    - **内容**: `implementation_plan.md` セクション10 のワードリスト（100語）を JSON 配列として保存。ランダム選出時に `room.usedWords` を除外して重複を防止。
+- [x] [Backend] お題リスト (`themes.json`) 作成と選出ロジック
+    - **ファイル**: `server/themes.json` 新規作成 ✅
+    - **内容**: implementation_plan.md セクション10 のワードリスト（100語）をJSON配列として保存。`pickWord(room)` 関数が `room.usedWords` を除外してランダム選出。全語使い切ったら自動リセット。
     - **形式**: `["りんご", "バナナ", "イチゴ", ...]`
 
-- [ ] [Backend] ターン制・プレイヤー交代ロジック
-    - **ファイル**: `server/index.js` (or `gameManager.js`)
-    - **内容**: `START_GAME` 受信 → `status: 'PLAYING'` に変更、`currentTurnIndex: 0`、お題選出、`YOUR_WORD` を画家に送信、`setInterval` で1秒ごとに `TIMER_TICK` を送信。タイマーが0になったら `TURN_END`。`currentTurnIndex` をインクリメントし、全員回ったら `round++`。`round > totalRounds` で `GAME_END`。
-    - **参照**: `implementation_plan.md` セクション6.2「ターンの流れ」
+- [x] [Backend] ターン制・プレイヤー交代ロジック
+    - **ファイル**: `server/index.js`, `server/gameManager.js` ✅
+    - **内容**: `START_GAME` → `status: 'PLAYING'`、`startTurn()` でお題選出・`YOUR_WORD` 送信・タイマー開始。タイムアップで `endTurn('timeout')`。`currentTurnIndex++`、全員1回描いたら `round++`。`round > totalRounds` で `GAME_END`。
 
 - [ ] [Frontend] 画家用のお題表示と、回答者用のチャット入力 UI
     - **ファイル**: `client/src/components/GameBoard.jsx` を新規作成、`client/src/components/Chat.jsx` を新規作成
     - **内容**: GameBoard は Canvas, Toolbar, Chat, Scoreboard, Timer を組み合わせたメイン画面。画家にはお題をヘッダーに大きく表示。回答者にはチャット入力フォーム（Enter で `SUBMIT_GUESS` 送信）。不正解メッセージもチャット欄に表示。
     - **参照**: `implementation_plan.md` セクション7.5「ゲーム画面」
 
-- [ ] [Backend] 正解判定・ポイント計算・タイマー同期
-    - **ファイル**: `server/index.js`
-    - **内容**: `SUBMIT_GUESS` 受信 → 送信者が画家でないことを確認 → お題とテキストをひらがなに正規化して比較 → 一致なら `残り秒数 × 10` を正解者と画家に加点 → `CORRECT_ANSWER` を全員に送信 → タイマー停止 → `TURN_END`
-    - **参照**: `implementation_plan.md` セクション6.5「正解判定ロジック」
+- [x] [Backend] 正解判定・ポイント計算・タイマー同期
+    - **ファイル**: `server/index.js` ✅
+    - **内容**: `SUBMIT_GUESS` → 画家でないことを確認 → カタカナ→ひらがな正規化で比較 → 正解なら `残り秒数 × 10` を正解者と画家に加点 → `CORRECT_ANSWER` 送信 → タイマー停止 → 3秒後 `TURN_END`
 
 - [ ] **Checkpoint**: 1ゲーム（n周）のサイクルが正常に回り、正解時にスコアが加算され、全周回終了後にGAME_ENDが発火すること
 
