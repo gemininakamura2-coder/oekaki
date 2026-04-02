@@ -36,6 +36,7 @@ function App() {
   // ── エラー・KICKの状態 ──
   const [error, setError] = useState('');
   const [isKicked, setIsKicked] = useState(false); // ホストにキックされたかどうか
+  const [copiedMsg, setCopiedMsg] = useState(''); // クリップボードコピー後のトースト文言
 
   // ── URLパラメータからルームIDを取得（QRコードスキャン対応）──
   // ページ読み込み時のみ評価するため useState の初期化関数で処理する
@@ -137,6 +138,18 @@ function App() {
   };
 
   /**
+   * 指定テキストをクリップボードにコピーし、2秒間トーストを表示する。
+   * @param {string} text - コピーするテキスト
+   * @param {string} label - トーストに表示するラベル（例: 'ルームID'）
+   */
+  const handleCopy = (text, label) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedMsg(`${label} をコピーしました！`);
+      setTimeout(() => setCopiedMsg(''), 2000); // 2秒後に消す
+    });
+  };
+
+  /**
    * 「全消去」ボタンが押されたとき。
    * 確認ダイアログを表示してから自分のキャンバスをクリアし、
    * サーバー経由で全員のキャンバスもクリアする。
@@ -220,9 +233,15 @@ function App() {
         {/* 右: サイドバー（ルーム情報・QR・プレイヤー一覧・ゲーム開始ボタン） */}
         <div className="white-panel sidebar">
 
-          {/* ルームIDとステータスバッジ */}
+          {/* ルームIDとステータスバッジ（クリックでコピー） */}
           <div className="room-header">
-            <h2>ルーム: {room.id}</h2>
+            <h2
+              className="room-id-copy"
+              onClick={() => handleCopy(room.id, 'ルームID')}
+              title="クリックでコピー"
+            >
+              ルーム: {room.id} 📋
+            </h2>
             <span className="badge">{room.status}</span>
           </div>
 
@@ -233,8 +252,13 @@ function App() {
             <div className="qr-box">
               <QRCodeSVG value={`${window.location.origin}/?room=${room.id}`} size={120} />
             </div>
-            <p className="qr-url">
-              またはURLを共有:<br />
+            {/* URLクリックでコピー */}
+            <p
+              className="qr-url url-copy"
+              onClick={() => handleCopy(`${window.location.origin}/?room=${room.id}`, 'URL')}
+              title="クリックでコピー"
+            >
+              URLをコピー 📋<br />
               {`${window.location.origin}/?room=${room.id}`}
             </p>
           </div>
@@ -355,6 +379,32 @@ function App() {
         /* ゲーム開始ボタン（一番下に固定） */
         .host-controls { margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color); }
         .start-btn { width: 100%; padding: 0.8rem; }
+        /* ルームID: クリックできることを示すスタイル */
+        .room-id-copy {
+          cursor: pointer;
+          user-select: none;
+          transition: color 0.2s;
+        }
+        .room-id-copy:hover { color: var(--color-primary-dark); }
+        /* URL: クリックできることを示すスタイル */
+        .url-copy {
+          cursor: pointer;
+          user-select: none;
+          transition: opacity 0.2s;
+        }
+        .url-copy:hover { opacity: 0.7; }
+        /* コピー完了トースト */
+        .copy-toast {
+          position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%);
+          background: #22c55e; padding: 10px 22px; border-radius: 30px;
+          color: white; font-weight: 600; font-size: 0.9rem;
+          box-shadow: var(--shadow-lg);
+          animation: fadeInUp 0.2s ease;
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
         /* エラートースト（画面下部に固定） */
         .global-error {
           position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -362,6 +412,9 @@ function App() {
           color: white; font-weight: 600; box-shadow: var(--shadow-lg);
         }
       `}</style>
+
+      {/* コピー完了トースト（緑色で2秒間表示） */}
+      {copiedMsg && <div className="copy-toast">{copiedMsg}</div>}
     </div>
   );
 }
