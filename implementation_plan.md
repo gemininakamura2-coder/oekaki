@@ -82,75 +82,29 @@ draw/                        ← プロジェクトルート
             └── Results.jsx      ← 最終ランキング＆ギャラリー
 ```
 
-### 3.2 現在のプロジェクト状態（Phase 1 完了時点）
-- `server/` : Express + Socket.io の最小サーバー（`index.js`）作成済み。接続/切断ログのみ。
-- `client/` : Vite + React のデフォルトテンプレート。追加ライブラリインストール済み。
-- `package.json` (root) : 一括ビルド/起動スクリプト設定済み。
-- **動作確認済み**: `npm run build:all` → `npm start` で `localhost:3000` にReactデフォルト画面が表示されることを確認。
+### 3.2 現在のプロジェクト状態（Phase 4 バックエンド完了時点）
 
-### 3.3 既存コード: `server/index.js`（現在の内容）
-```javascript
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const path = require('path');
+| ファイル | 実装状態 |
+|---|---|
+| `server/index.js` | ✅ 完成: CREATE_ROOM / JOIN_ROOM / START_GAME / DRAW_STROKE / CLEAR_CANVAS / SUBMIT_GUESS / SAVE_CANVAS / KICK_PLAYER + startTurn/endTurn |
+| `server/gameManager.js` | ✅ 完成: createRoom / joinRoom / leaveRoom / pickWord(重複除外) / saveGalleryItem |
+| `server/themes.json` | ✅ 完成: お題100語 |
+| `client/src/App.jsx` | ⚠️ 部分実装: ロビー/Canvas直置き画面は動作中。QRコード・KICK実装済み。ゲームイベント（GAME_STARTED等）未接続 |
+| `client/src/components/Lobby.jsx` | ✅ 完成 |
+| `client/src/components/GameBoard.jsx` | ⚠️ 骨格のみ: Canvas・Toolbar・回答入力・スコア表示あり。App.jsxと未接続・CHAT_MESSAGE履歴表示なし |
+| `client/src/components/Canvas.jsx` | ✅ 完成: 正規化座標・履歴復元 |
+| `client/src/components/Toolbar.jsx` | ✅ 完成: 12色・4段階太さ・消しゴム |
+| `client/src/socket.js` | ✅ 完成 |
 
-const app = express();
-const server = http.createServer(app);
+**次の実装ステップ**: `App.jsx` で `GameBoard` への切り替えと `GAME_STARTED` / `YOUR_WORD` / `TIMER_TICK` / `CORRECT_ANSWER` / `TURN_END` / `GAME_END` のSocket受信を実装する。
 
-const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-});
-
-app.use(cors());
-
-const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
-app.use(express.static(clientDistPath));
-
-// Express v5: ワイルドカードは {*path} 記法が必要
-app.get('/{*path}', (req, res) => {
-  res.sendFile(path.join(clientDistPath, 'index.html'));
-});
-
-io.on('connection', (socket) => {
-  console.log(`[DrawDraw] Player connected: ${socket.id}`);
-  socket.on('disconnect', () => {
-    console.log(`[DrawDraw] Player disconnected: ${socket.id}`);
-  });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`[DrawDraw] Server running on http://localhost:${PORT}`);
-});
-```
-
-### 3.4 既存コード: `package.json`（ルート）
-```json
-{
-  "name": "drawdraw",
-  "version": "1.0.0",
-  "description": "DrawDraw - Real-time drawing quiz app with Socket.io",
-  "private": true,
-  "scripts": {
-    "install:all": "cd server && npm install && cd ../client && npm install",
-    "build:client": "cd client && npm run build",
-    "build:all": "npm run build:client",
-    "dev:server": "cd server && node index.js",
-    "dev:client": "cd client && npm run dev",
-    "start": "node server/index.js"
-  }
-}
-```
-
-### 3.5 インストール済みパッケージ
+### 3.3 インストール済みパッケージ
 - **server**: `express`, `socket.io`, `cors`
 - **client**: `react`, `react-dom`, `vite`, `lucide-react`, `qrcode.react`, `canvas-confetti`, `socket.io-client`
 
-### 3.6 重要な注意事項
+### 3.4 重要な注意事項
 - Node.js v25 + Express v5 環境。Express v5 では `app.get('*', ...)` は非推奨。`app.get('/{*path}', ...)` を使用すること。
-- PowerShell でのスクリプト実行ポリシーの制限があるため、コマンドは `cmd /c "..."` で実行すること。
+- PowerShell では `&&` でコマンドを繋げられない。`;` を使って区切ること（例: `git commit -m "..." ; git push`）。
 
 ---
 
