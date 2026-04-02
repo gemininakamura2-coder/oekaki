@@ -154,7 +154,7 @@ const Canvas = ({
     const rect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
+
     const logicalWidth = logicalSizeRef.current?.width || rect.width;
     const logicalHeight = logicalSizeRef.current?.height || rect.height;
     const scaleX = logicalWidth / rect.width;

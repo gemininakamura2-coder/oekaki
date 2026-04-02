@@ -3,12 +3,12 @@ import Canvas from './Canvas';
 import Toolbar from './Toolbar';
 import { Timer, Trophy, Send } from 'lucide-react';
 
-const GameBoard = ({ 
-  room, 
-  playerId, 
-  word, 
-  onStrokeEmit, 
-  externalStroke, 
+const GameBoard = ({
+  room,
+  playerId,
+  word,
+  onStrokeEmit,
+  externalStroke,
   clearTrigger,
   onSendGuess,
   onLocalClear,
@@ -61,7 +61,7 @@ const GameBoard = ({
       <div className="main-layout">
         {/* 左: ツールバー (画家のみ表示) */}
         <div className={`toolbar-wrapper ${isPainter ? 'visible' : 'hidden'}`}>
-          <Toolbar 
+          <Toolbar
             color={color} onColorChange={setColor}
             size={size} onSizeChange={setSize}
             tool={tool} onToolChange={setTool}
@@ -71,7 +71,7 @@ const GameBoard = ({
 
         {/* 中央: キャンバス */}
         <div className="canvas-container white-panel">
-          <Canvas 
+          <Canvas
             isPainter={isPainter}
             color={color} size={size} tool={tool}
             onStrokeEmit={onStrokeEmit}
@@ -99,9 +99,9 @@ const GameBoard = ({
           <div className="sidebar-section guess-area">
             {!isPainter && !isLobby && (
               <form onSubmit={handleSubmitGuess} className="guess-form">
-                <input 
-                  type="text" 
-                  placeholder="答えを入力..." 
+                <input
+                  type="text"
+                  placeholder="答えを入力..."
                   value={guess}
                   onChange={(e) => setGuess(e.target.value)}
                 />
