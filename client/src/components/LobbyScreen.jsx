@@ -64,7 +64,7 @@ const LobbyScreen = ({
         <div className="canvas-wrapper-outer white-panel">
           {/* ロビーの見出し */}
           <div className="canvas-header">
-            <span className="canvas-title">🎨 フリーボード — みんなで落書きしよう！</span>
+            <span className="canvas-title">🎨 フリーボード</span>
           </div>
           <div className="canvas-body">
             <Canvas

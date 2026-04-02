@@ -25,10 +25,9 @@
  *   onLocalClear  - 全消去ボタン（自分のキャンバスクリア + Socket emit）
  *   color/setColor, size/setSize, tool/setTool - 描画ツールの状態
  *
- *   messages      - チャットメッセージ履歴（CHAT_MESSAGE受信分）
- *   correctToast  - 正解時のトースト表示データ（winnerName, word, points）
- *   saveCanvasTrigger - ギャラリー用キャンバス画像保存のトリガー
- *   onSaveCanvas  - キャンバス画像をサーバーに送るコールバック
+ * TODO（次のフェーズで追加予定）:
+ *   - CHAT_MESSAGE 受信によるチャット履歴表示
+ *   - CORRECT_ANSWER 受信時のトースト通知
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -38,168 +37,168 @@ import PlayerList from './PlayerList';
 import { Timer, Trophy, Send } from 'lucide-react';
 
 const GameBoard = ({
-  room,
-  playerId,
-  word,          // 自分が画家のときだけセットされるお題
-  messages = [], // チャット履歴
-  correctToast,  // 正解トースト
-  onStrokeEmit,
-  externalStroke,
-  clearTrigger,
-  onSendGuess,
-  onLocalClear,
-  // 描画ツール用の状態（GameBoard の子コンポーネントで共有）
-  color, setColor,
-  size, setSize,
-  tool, setTool,
-  saveCanvasTrigger,
-  onSaveCanvas,
+    room,
+    playerId,
+    word,          // 自分が画家のときだけセットされるお題
+    messages = [], // チャット履歴
+    correctToast,  // 正解トースト
+    onStrokeEmit,
+    externalStroke,
+    clearTrigger,
+    onSendGuess,
+    onLocalClear,
+    // 描画ツール用の状態（GameBoard の子コンポーネントで共有）
+    color, setColor,
+    size, setSize,
+    tool, setTool,
+    saveCanvasTrigger,
+    onSaveCanvas,
 }) => {
-  // 回答入力フォームのテキスト
-  const [guess, setGuess] = useState('');
-  const messagesEndRef = useRef(null);
+    // 回答入力フォームのテキスト
+    const [guess, setGuess] = useState('');
+    const messagesEndRef = useRef(null);
 
-  const isPainter = room.currentPainterId === playerId;
+    const isPainter = room.currentPainterId === playerId;
 
-  // チャット更新時に自動スクロール
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // チャット更新時に自動スクロール
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
-  /**
-   * 回答フォームのサブミット処理。
-   * 空文字は送信しない。送信後は入力欄をクリアする。
-   */
-  const handleSubmitGuess = (e) => {
-    e.preventDefault();
-    if (!guess.trim()) return;
-    onSendGuess(guess.trim());
-    setGuess('');
-  };
+    /**
+     * 回答フォームのサブミット処理。
+     * 空文字は送信しない。送信後は入力欄をクリアする。
+     */
+    const handleSubmitGuess = (e) => {
+        e.preventDefault();
+        if (!guess.trim()) return;
+        onSendGuess(guess.trim());
+        setGuess('');
+    };
 
-  return (
-    <div className="game-board" style={{ position: 'relative' }}>
+    return (
+        <div className="game-board" style={{ position: 'relative' }}>
 
-      {/* 正解時のトースト通知 */}
-      {correctToast && (
-        <div className="correct-toast">
-          <div className="toast-title">🎊 {correctToast.winnerName} さんが正解！</div>
-          <div className="toast-word">お題: <span>{correctToast.word}</span></div>
-          <div className="toast-points">(+{correctToast.points}pt)</div>
-        </div>
-      )}
+            {/* 正解時のトースト通知 */}
+            {correctToast && (
+                <div className="correct-toast">
+                    <div className="toast-title">🎊 {correctToast.winnerName} さんが正解！</div>
+                    <div className="toast-word">お題: <span>{correctToast.word}</span></div>
+                    <div className="toast-points">(+{correctToast.points}pt)</div>
+                </div>
+            )}
 
-      {/* ── ヘッダーバー ── */}
-      <div className="game-header white-panel">
-        {/* 左: タイマー */}
-        <div className="header-item">
-          <Timer size={20} className="icon-blue" />
-          <span className="timer-text">
-            {/* ゲーム中は残り秒数、ロビー中はデフォルト値を表示 */}
-            {room.timeLeft ?? 100}s
-          </span>
-        </div>
+            {/* ── ヘッダーバー ── */}
+            <div className="game-header white-panel">
+                {/* 左: タイマー */}
+                <div className="header-item">
+                    <Timer size={20} className="icon-blue" />
+                    <span className="timer-text">
+                        {/* ゲーム中は残り秒数、ロビー中はデフォルト値を表示 */}
+                        {room.timeLeft ?? 100}s
+                    </span>
+                </div>
 
-        {/* 中央: 画家にはお題を表示、回答者には「当ててね」のメッセージ */}
-        <div className="header-center">
-          {isPainter ? (
-            // 画家用: お題を大きく表示（他の人には見えない）
-            <div className="word-display">
-              <span className="label">お題:</span>
-              <span className="word">{word}</span>
+                {/* 中央: 画家にはお題を表示、回答者には「当ててね」のメッセージ */}
+                <div className="header-center">
+                    {isPainter ? (
+                        // 画家用: お題を大きく表示（他の人には見えない）
+                        <div className="word-display">
+                            <span className="label">お題:</span>
+                            <span className="word">{word}</span>
+                        </div>
+                    ) : (
+                        // 回答者: もわかる?のメッセージ
+                        <div className="status-display">何を描いているか当てよう！</div>
+                    )}
+                </div>
+
+                {/* 右: 自分の現在スコア */}
+                <div className="header-item">
+                    <Trophy size={20} className="icon-gold" />
+                    <span className="score-text">
+                        {room.players.find((p) => p.id === playerId)?.points ?? 0} pts
+                    </span>
+                </div>
             </div>
-          ) : (
-            // 回答者: もわかる?のメッセージ
-            <div className="status-display">何を描いているか当てよう！</div>
-          )}
-        </div>
 
-        {/* 右: 自分の現在スコア */}
-        <div className="header-item">
-          <Trophy size={20} className="icon-gold" />
-          <span className="score-text">
-            {room.players.find((p) => p.id === playerId)?.points ?? 0} pts
-          </span>
-        </div>
-      </div>
+            {/* ── メインエリア（水平3カラム） ── */}
+            <div className="main-layout">
 
-      {/* ── メインエリア（水平3カラム） ── */}
-      <div className="main-layout">
+                {/* 左カラム: ツールバー（画家のみ表示、回答者には非表示） */}
+                {/* opacityとpointer-eventsで視覚的・操作的に非表示にする */}
+                <div className={`toolbar-wrapper ${isPainter ? 'visible' : 'hidden'}`}>
+                    <Toolbar
+                        color={color} onColorChange={setColor}
+                        size={size} onSizeChange={setSize}
+                        tool={tool} onToolChange={setTool}
+                        onClear={onLocalClear}
+                    />
+                </div>
 
-        {/* 左カラム: ツールバー（画家のみ表示、回答者には非表示） */}
-        {/* opacityとpointer-eventsで視覚的・操作的に非表示にする */}
-        <div className={`toolbar-wrapper ${isPainter ? 'visible' : 'hidden'}`}>
-          <Toolbar
-            color={color} onColorChange={setColor}
-            size={size} onSizeChange={setSize}
-            tool={tool} onToolChange={setTool}
-            onClear={onLocalClear}
-          />
-        </div>
+                {/* 中央カラム: キャンバス本体 */}
+                <div className="canvas-container white-panel">
+                    <Canvas
+                        isPainter={isPainter}
+                        color={color} size={size} tool={tool}
+                        onStrokeEmit={onStrokeEmit}
+                        externalStroke={externalStroke}
+                        clearTrigger={clearTrigger}
+                        saveCanvasTrigger={saveCanvasTrigger}
+                        onSaveCanvas={onSaveCanvas}
+                    // ゲーム中はターン開始でキャンバスがサーバー側からリセットされるため
+                    // initialStrokes はロビー時のみ使用（今後調整予定）
+                    />
+                </div>
 
-        {/* 中央カラム: キャンバス本体 */}
-        <div className="canvas-container white-panel">
-          <Canvas
-            isPainter={isPainter}
-            color={color} size={size} tool={tool}
-            onStrokeEmit={onStrokeEmit}
-            externalStroke={externalStroke}
-            clearTrigger={clearTrigger}
-            saveCanvasTrigger={saveCanvasTrigger}
-            onSaveCanvas={onSaveCanvas}
-          // ゲーム中はターン開始でキャンバスがサーバー側からリセットされるため
-          // initialStrokes はロビー時のみ使用（今後調整予定）
-          />
-        </div>
+                {/* 右カラム: スコアボード + 回答入力エリア */}
+                <div className="sidebar white-panel">
 
-        {/* 右カラム: スコアボード + 回答入力エリア */}
-        <div className="sidebar white-panel">
+                    {/* プレイヤー一覧とスコア */}
+                    <PlayerList
+                        players={room.players}
+                        playerId={playerId}
+                        hostId={room.hostId}
+                        currentPainterId={room.currentPainterId}
+                        mode="game"
+                    />
 
-          {/* プレイヤー一覧とスコア */}
-          <PlayerList
-            players={room.players}
-            playerId={playerId}
-            hostId={room.hostId}
-            currentPainterId={room.currentPainterId}
-            mode="game"
-          />
+                    {/* チャット履歴表示エリア */}
+                    <div className="chat-container">
+                        {messages.map((m, i) => (
+                            <div key={i} className="chat-message">
+                                <span className="chat-author">{m.playerName}:</span>
+                                <span className="chat-text">{m.text}</span>
+                            </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
 
-          {/* チャット履歴表示エリア */}
-          <div className="chat-container">
-            {messages.map((m, i) => (
-              <div key={i} className="chat-message">
-                <span className="chat-author">{m.playerName}:</span>
-                <span className="chat-text">{m.text}</span>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+                    {/* 回答入力エリア */}
+                    <div className="sidebar-section guess-area">
+                        {/* 回答者かつゲーム中のときのみ入力フォームを表示 */}
+                        {!isPainter && (
+                            <form onSubmit={handleSubmitGuess} className="guess-form">
+                                <input
+                                    type="text"
+                                    placeholder="答えを入力..."
+                                    value={guess}
+                                    onChange={(e) => setGuess(e.target.value)}
+                                />
+                                <button type="submit" className="btn-primary icon-only">
+                                    <Send size={18} />
+                                </button>
+                            </form>
+                        )}
+                        {/* 画家への励ましメッセージ */}
+                        {isPainter && (
+                            <p className="hint">あなたは画家です！伝わるように描こう！</p>
+                        )}
+                    </div>
+                </div>
+            </div>
 
-          {/* 回答入力エリア */}
-          <div className="sidebar-section guess-area">
-            {/* 回答者かつゲーム中のときのみ入力フォームを表示 */}
-            {!isPainter && (
-              <form onSubmit={handleSubmitGuess} className="guess-form">
-                <input
-                  type="text"
-                  placeholder="答えを入力..."
-                  value={guess}
-                  onChange={(e) => setGuess(e.target.value)}
-                />
-                <button type="submit" className="btn-primary icon-only">
-                  <Send size={18} />
-                </button>
-              </form>
-            )}
-            {/* 画家への励ましメッセージ */}
-            {isPainter && (
-              <p className="hint">あなたは画家です！伝わるように描こう！</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <style jsx="true">{`
+            <style jsx="true">{`
         /* ゲームボード全体: 縦方向に積む */
         .game-board {
           display: flex;
@@ -301,8 +300,8 @@ const GameBoard = ({
           100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
       `}</style>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default GameBoard;

@@ -16,10 +16,9 @@
  *   - 各画面コンポーネント（EntryScreen/LobbyScreen/GameBoard）は表示に専念する
  *   - 描画ツールの状態（color, size, tool）もここが保持し各画面に渡す
  *
- * 実装済みSocketリスナー:
- *   - JOIN_SUCCESS / ERROR / ROOM_UPDATE / KICKED（Phase 2〜3）
- *   - DRAW_STROKE / CLEAR_CANVAS（Phase 3）
- *   - GAME_STARTED / YOUR_WORD / TIMER_TICK / CORRECT_ANSWER / TURN_END / GAME_END / CHAT_MESSAGE（Phase 4）
+ * TODO（Phase 4 続き）:
+ *   - GAME_STARTED / YOUR_WORD / TIMER_TICK / CORRECT_ANSWER / TURN_END / GAME_END
+ *     のSocketリスナーを追加して GameBoard と接続する
  */
 
 import React, { useState, useEffect } from 'react';
@@ -112,13 +111,13 @@ function App() {
 
     // GAME_STARTED: ターンが開始されたとき
     const onGameStarted = (data) => {
-      setRoom((prev) => prev ? { 
-        ...prev, 
-        status: 'PLAYING', 
-        currentPainterId: data.painterId, 
-        round: data.round, 
-        totalRounds: data.totalRounds, 
-        timeLeft: data.timeLeft 
+      setRoom((prev) => prev ? {
+        ...prev,
+        status: 'PLAYING',
+        currentPainterId: data.painterId,
+        round: data.round,
+        totalRounds: data.totalRounds,
+        timeLeft: data.timeLeft
       } : null);
       setMessages([]);
       setCorrectToast(null);
@@ -154,8 +153,8 @@ function App() {
     // TURN_END: ターンが終了して次のターンに移る前
     const onTurnEnd = ({ reason, nextPainterId }) => {
       if (reason === 'timeout') {
-         // タイムアップ時もギャラリーに残すため画像化をトリガー
-         setSaveCanvasTrigger(Date.now());
+        // タイムアップ時もギャラリーに残すため画像化をトリガー
+        setSaveCanvasTrigger(Date.now());
       }
       setRoom((prev) => prev ? { ...prev, currentPainterId: nextPainterId } : null);
       setWord('');
@@ -328,7 +327,7 @@ function App() {
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-secondary)', padding: 20 }}>
           <GameBoard
             {...drawingProps}
-            word={word} 
+            word={word}
             messages={messages}
             correctToast={correctToast}
             onSendGuess={(text) => socket.emit('SUBMIT_GUESS', { roomId: room.id, text })}
