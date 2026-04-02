@@ -35,6 +35,8 @@ const Canvas = ({
   externalStroke,
   clearTrigger,
   initialStrokes = [],
+  saveCanvasTrigger, // 追加: 保存トリガー (Date.now() 等)
+  onSaveCanvas,      // 追加: 画家が描いたイラストを上に渡すコールバック
 }) => {
   // canvas 要素への参照（DOM に直接アクセスするために使う）
   const canvasRef = useRef(null);
@@ -55,6 +57,19 @@ const Canvas = ({
       clearAllLines();
     }
   }, [clearTrigger]);
+
+  // ── キャンバス画像のエクスポート ──
+  // 正解が出た時やタイムアップ時に、ギャラリー保存用の画像データを取り出す
+  useEffect(() => {
+    if (saveCanvasTrigger > 0 && isPainter) {
+      const canvas = canvasRef.current;
+      if (canvas && onSaveCanvas) {
+        // PNGのBase64データとして取得
+        const imageData = canvas.toDataURL('image/png');
+        onSaveCanvas(imageData);
+      }
+    }
+  }, [saveCanvasTrigger, isPainter, onSaveCanvas]);
 
   /**
    * キャンバス全体を白で塗りつぶす（全消去）。

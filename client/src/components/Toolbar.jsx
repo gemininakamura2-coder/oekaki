@@ -63,7 +63,7 @@ const Toolbar = ({
               className={`color-btn ${
                 // 消しゴムモード中は色ボタンをアクティブにしない
                 color === c && tool === 'pen' ? 'active' : ''
-              }`}
+                }`}
               style={{ backgroundColor: c }}
               onClick={() => {
                 // 色を選んだときは自動的に pen モードに戻す

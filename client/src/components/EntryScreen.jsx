@@ -1,32 +1,30 @@
 /**
- * Lobby.jsx — ロビー画面コンポーネント（ゲーム開始前の入口）
+ * EntryScreen.jsx — アプリの入口画面
  *
  * 役割:
- *   - プレイヤー名の入力を受け付ける
- *   - 「新しい部屋を作る」ボタンで CREATE_ROOM イベントを送信する
- *   - 「参加する」ボタンでルームIDを入力して JOIN_ROOM イベントを送信する
+ *   - ゲームに参加する前の「受付」として機能する
+ *   - プレイヤー名の入力・部屋の作成・部屋への参加を行う
+ *   - URLパラメータ (?room=XXXXX) からルームIDを読み取る（QRコード対応）
  *
  * 通信:
  *   socket.emit('CREATE_ROOM', { playerName })
  *   socket.emit('JOIN_ROOM', { roomId, playerName })
- *   → 結果は App.jsx 側の 'JOIN_SUCCESS' リスナーで受け取る
+ *   → 応答は App.jsx 側の 'JOIN_SUCCESS' リスナーで受け取る
  *
  * Props:
- *   initialRoomId - URLパラメータ (?room=XXXXX) から渡されるルームID。
- *                   QRコードをスキャンしてアクセスした場合に使用。
+ *   initialRoomId - URLパラメータから渡されるルームID（QRコードスキャン時に自動入力）
  */
 
 import React, { useState } from 'react';
 import { socket } from '../socket';
-import { Users, Plus, LogIn } from 'lucide-react';
+import { Plus, LogIn } from 'lucide-react';
 
-const Lobby = ({ initialRoomId }) => {
+const EntryScreen = ({ initialRoomId }) => {
   const [playerName, setPlayerName] = useState('');
   // URLパラメータで渡されたルームIDがあれば初期値として設定する（QRコード対応）
   const [roomId, setRoomId] = useState(initialRoomId || '');
   const [nameError, setNameError] = useState('');  // 名前フィールドのバリデーションエラー
   const [roomError, setRoomError] = useState('');  // ルームIDフィールドのバリデーションエラー
-  const [error, setError] = useState('');           // その他の汎用エラー
 
   /**
    * 「新しい部屋を作る」ボタン処理。
@@ -34,11 +32,8 @@ const Lobby = ({ initialRoomId }) => {
    * 応答（JOIN_SUCCESS）は App.jsx のリスナーで受け取る。
    */
   const handleCreateRoom = () => {
-    // エラーをリセット
     setNameError('');
     setRoomError('');
-    setError('');
-
     if (!playerName.trim()) return setNameError('名前を入力してください');
 
     // ここで初めて Socket.io に接続する（ページ読み込み時は接続しない設計）
@@ -53,8 +48,6 @@ const Lobby = ({ initialRoomId }) => {
   const handleJoinRoom = () => {
     setNameError('');
     setRoomError('');
-    setError('');
-
     if (!playerName.trim()) return setNameError('名前を入力してください');
     if (!roomId.trim()) return setRoomError('ルームIDを入力してください');
 
@@ -63,13 +56,13 @@ const Lobby = ({ initialRoomId }) => {
   };
 
   return (
-    <div className="lobby-container">
-      <div className="white-panel main-panel">
+    <div className="entry-container">
+      <div className="white-panel entry-panel">
         <h1 className="logo">DrawDraw</h1>
         <p className="subtitle">リアルタイムお絵描きクイズ</p>
 
         {/* ── 名前入力フォーム ── */}
-        <div className="form-group" style={{ marginBottom: nameError ? '1rem' : '2.5rem' }}>
+        <div className="form-group">
           <label>あなたの名前</label>
           <input
             type="text"
@@ -78,14 +71,11 @@ const Lobby = ({ initialRoomId }) => {
             value={playerName}
             onChange={(e) => {
               setPlayerName(e.target.value);
-              setNameError(''); // 入力が変わったらエラーをクリア
+              setNameError('');
             }}
           />
           {nameError && <p className="field-error">{nameError}</p>}
         </div>
-
-        {/* サーバーからの汎用エラー（ルームが見つからないなど） */}
-        {error && <p className="global-error-text">{error}</p>}
 
         <div className="actions">
           {/* ── 部屋を作るボタン ── */}
@@ -124,7 +114,7 @@ const Lobby = ({ initialRoomId }) => {
       </div>
 
       <style jsx="true">{`
-        .lobby-container {
+        .entry-container {
           display: flex;
           justify-content: center;
           align-items: center;
@@ -132,7 +122,7 @@ const Lobby = ({ initialRoomId }) => {
           padding: 20px;
           background-color: var(--bg-secondary);
         }
-        .main-panel {
+        .entry-panel {
           width: 100%;
           max-width: 450px;
           padding: 48px;
@@ -162,29 +152,12 @@ const Lobby = ({ initialRoomId }) => {
           font-size: 0.95rem;
           font-weight: 600;
         }
-        /* サーバーエラー（ルームなしなど）の表示 */
-        .global-error-text {
-          color: var(--color-error);
-          font-size: 0.95rem;
-          margin-top: -1.5rem;
-          margin-bottom: 1.5rem;
-          background: #ffe4e6;
-          padding: 8px;
-          border-radius: 6px;
-          text-align: center;
-        }
         .field-error {
           color: var(--color-error);
           font-size: 0.85rem;
           margin-top: 8px;
           margin-bottom: 0;
           text-align: left;
-        }
-        .join-container {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          width: 100%;
         }
         .actions {
           display: flex;
@@ -215,6 +188,12 @@ const Lobby = ({ initialRoomId }) => {
           background: var(--border-color);
           margin: 0 16px;
         }
+        .join-container {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          width: 100%;
+        }
         .join-group {
           display: flex;
           gap: 12px;
@@ -232,4 +211,4 @@ const Lobby = ({ initialRoomId }) => {
   );
 };
 
-export default Lobby;
+export default EntryScreen;

@@ -2,30 +2,31 @@
  * App.jsx — DrawDraw のルートコンポーネント
  *
  * 役割:
- *   - アプリ全体の状態（ルーム情報・プレイヤーID・画面）を管理する
+ *   - アプリ全体の状態（ルーム情報・プレイヤーID）を管理する
  *   - Socket.io のイベントリスナーをここで一元管理する
- *   - 画面の切り替えを行う:
- *       未参加 → Lobby（ロビー画面）
- *       参加済み → ゲーム画面（現在: Canvas直置き ※今後GameBoardに移行予定）
- *       キック → キック通知画面
+ *   - 画面の切り替えを担当する:
  *
- * 状態管理の方針:
- *   - ルームの状態（players, status など）はサーバーからのイベントで更新する
- *   - 描画ツールの状態（color, size, tool）はここが保持し Canvas/GameBoard に渡す
+ *       [未参加]          → EntryScreen（名前入力・部屋を探す）
+ *       [参加済/LOBBY]    → LobbyScreen（みんなで自由描き・招待・ゲーム開始）
+ *       [参加済/PLAYING]  → GameBoard  （クイズ本番）
+ *       [KICKED]          → キック通知画面
  *
- * TODO（Phase 4 続き）:
- *   - GameBoard コンポーネントに切り替える（現在はCanvas直接使用）
- *   - GAME_STARTED / YOUR_WORD / TIMER_TICK / CORRECT_ANSWER / TURN_END / GAME_END
- *     のSocketリスナーを追加する
- *   - START_GAME ボタンに onClick を追加する
+ * 設計方針:
+ *   - 状態管理（room, playerId, joined 等）と Socket リスナーはここに集約する
+ *   - 各画面コンポーネント（EntryScreen/LobbyScreen/GameBoard）は表示に専念する
+ *   - 描画ツールの状態（color, size, tool）もここが保持し各画面に渡す
+ *
+ * 実装済みSocketリスナー:
+ *   - JOIN_SUCCESS / ERROR / ROOM_UPDATE / KICKED（Phase 2〜3）
+ *   - DRAW_STROKE / CLEAR_CANVAS（Phase 3）
+ *   - GAME_STARTED / YOUR_WORD / TIMER_TICK / CORRECT_ANSWER / TURN_END / GAME_END / CHAT_MESSAGE（Phase 4）
  */
 
 import React, { useState, useEffect } from 'react';
 import { socket } from './socket';
-import Lobby from './components/Lobby';
-import Canvas from './components/Canvas';
-import Toolbar from './components/Toolbar';
-import { QRCodeSVG } from 'qrcode.react';
+import EntryScreen from './components/EntryScreen';
+import LobbyScreen from './components/LobbyScreen';
+import GameBoard from './components/GameBoard';
 
 function App() {
   // ── ルーム・プレイヤー情報 ──
@@ -35,12 +36,12 @@ function App() {
 
   // ── エラー・KICKの状態 ──
   const [error, setError] = useState('');
-  const [isKicked, setIsKicked] = useState(false); // ホストにキックされたかどうか
-  const [copiedMsg, setCopiedMsg] = useState(''); // クリップボードコピー後のトースト文言
+  const [isKicked, setIsKicked] = useState(false);   // ホストにキックされたかどうか
+  const [copiedMsg, setCopiedMsg] = useState('');    // クリップボードコピー後のトースト文言
 
   // ── URLパラメータからルームIDを取得（QRコードスキャン対応）──
   // ページ読み込み時のみ評価するため useState の初期化関数で処理する
-  const [initialRoomId, setInitialRoomId] = useState(() => {
+  const [initialRoomId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return (params.get('room') || '').toUpperCase();
   });
@@ -52,7 +53,15 @@ function App() {
 
   // ── Canvas の描画同期用 ──
   const [externalStroke, setExternalStroke] = useState(null); // 他プレイヤーの線データ
-  const [clearTrigger, setClearTrigger] = useState(0);         // 全消去トリガー（増加で発火）
+  const [clearTrigger, setClearTrigger] = useState(0);        // 全消去トリガー（増加で発火）
+
+  // ── ゲーム進行用（Phase 4 続きで実装） ──
+  const [word, setWord] = useState('');        // 自分がお題の画家のとき使う
+  const [messages, setMessages] = useState([]); // チャットメッセージ履歴
+  const [correctToast, setCorrectToast] = useState(null); // 正解時のトースト情報
+  const [rankings, setRankings] = useState(null); // ゲーム終了後のランキング
+  const [gallery, setGallery] = useState(null); // ゲーム終了後のギャラリー
+  const [saveCanvasTrigger, setSaveCanvasTrigger] = useState(0); // ギャラリー保存用トリガー
 
   // ===================================================================
   // Socket.io イベントリスナーの登録
@@ -61,30 +70,27 @@ function App() {
   useEffect(() => {
 
     // JOIN_SUCCESS: ルーム参加（作成 or 参加）に成功したとき
-    // サーバーから現在のルーム状態を受け取り、ゲーム画面に切り替える
     const onJoinSuccess = ({ room, playerId: pid }) => {
       setRoom(room);
       setPlayerId(pid);
       setJoined(true);
       setIsKicked(false);
-      setInitialRoomId(''); // URLパラメータの初期値は使用済みなのでクリア
       setError('');
     };
 
     // ERROR: サーバーがエラーを返したとき（ルームが見つからないなど）
     const onError = ({ message }) => {
       setError(message);
-      socket.disconnect(); // エラーが起きたら接続を切る
+      socket.disconnect();
     };
 
     // ROOM_UPDATE: プレイヤーが入退出してプレイヤーリストが変わったとき
-    // players 配列だけを差し替えることで、他の情報（strokes など）を保持する
+    // players 配列だけを差し替えることで、他の情報（strokes 等）を保持する
     const onRoomUpdate = ({ players }) => {
       setRoom((prev) => (prev ? { ...prev, players } : null));
     };
 
     // KICKED: ホストに強制退出させられたとき
-    // ロビーに戻してエラーメッセージを表示する
     const onKicked = ({ message }) => {
       setRoom(null);
       setJoined(false);
@@ -93,16 +99,75 @@ function App() {
       socket.disconnect();
     };
 
-    // DRAW_STROKE: 他のプレイヤーが线を引いたとき
+    // DRAW_STROKE: 他プレイヤーが線を引いたとき
     // Canvas の externalStroke prop に渡すことで再描画をトリガーする
     const onDrawStroke = (strokeData) => {
       setExternalStroke(strokeData);
     };
 
-    // CLEAR_CANVAS: 他プレイヤーが全消去したとき、またはターン開始時
-    // clearTrigger に Date.now() を渡してユニークな数値で Canvas を再トリガー
+    // CLEAR_CANVAS: 全消去または新ターン開始時のキャンバスリセット
     const onClearCanvas = () => {
       setClearTrigger(Date.now());
+    };
+
+    // GAME_STARTED: ターンが開始されたとき
+    const onGameStarted = (data) => {
+      setRoom((prev) => prev ? { 
+        ...prev, 
+        status: 'PLAYING', 
+        currentPainterId: data.painterId, 
+        round: data.round, 
+        totalRounds: data.totalRounds, 
+        timeLeft: data.timeLeft 
+      } : null);
+      setMessages([]);
+      setCorrectToast(null);
+    };
+
+    // YOUR_WORD: 自分がお題の画家のときにお題を受け取る
+    const onYourWord = ({ word }) => {
+      setWord(word);
+    };
+
+    // TIMER_TICK: 1秒ごとのタイマー更新
+    const onTimerTick = ({ timeLeft }) => {
+      setRoom((prev) => prev ? { ...prev, timeLeft } : null);
+    };
+
+    // CORRECT_ANSWER: 誰かが正解したとき
+    const onCorrectAnswer = (data) => {
+      setRoom((prev) => prev ? { ...prev, players: data.players } : null);
+      setCorrectToast({
+        winnerName: data.winnerName,
+        word: data.word,
+        points: data.points
+      });
+      // 正解が出た瞬間に、画家の画面ではキャンバスを画像化してサーバーに送る
+      setSaveCanvasTrigger(Date.now());
+    };
+
+    // CHAT_MESSAGE: 誰かが不正解またはチャットを送信したとき
+    const onChatMessage = (data) => {
+      setMessages((prev) => [...prev, data]);
+    };
+
+    // TURN_END: ターンが終了して次のターンに移る前
+    const onTurnEnd = ({ reason, nextPainterId }) => {
+      if (reason === 'timeout') {
+         // タイムアップ時もギャラリーに残すため画像化をトリガー
+         setSaveCanvasTrigger(Date.now());
+      }
+      setRoom((prev) => prev ? { ...prev, currentPainterId: nextPainterId } : null);
+      setWord('');
+      // 正解トーストは数秒間残るためここでは消さなくても良いが、ターン終了時には一応クリア
+      setCorrectToast(null);
+    };
+
+    // GAME_END: ゲームがすべて終了したとき
+    const onGameEnd = ({ rankings, gallery }) => {
+      setRoom((prev) => prev ? { ...prev, status: 'RESULT' } : null);
+      setRankings(rankings);
+      setGallery(gallery);
     };
 
     // イベントリスナーを登録
@@ -112,9 +177,15 @@ function App() {
     socket.on('KICKED', onKicked);
     socket.on('DRAW_STROKE', onDrawStroke);
     socket.on('CLEAR_CANVAS', onClearCanvas);
+    socket.on('GAME_STARTED', onGameStarted);
+    socket.on('YOUR_WORD', onYourWord);
+    socket.on('TIMER_TICK', onTimerTick);
+    socket.on('CORRECT_ANSWER', onCorrectAnswer);
+    socket.on('CHAT_MESSAGE', onChatMessage);
+    socket.on('TURN_END', onTurnEnd);
+    socket.on('GAME_END', onGameEnd);
 
-    // クリーンアップ: コンポーネントが unmount されるときに登録解除
-    // これをしないと開発の HMR（ホットリロード）時に二重登録が起きる
+    // クリーンアップ: unmount 時に登録解除（HMRでの二重登録防止）
     return () => {
       socket.off('JOIN_SUCCESS', onJoinSuccess);
       socket.off('ERROR', onError);
@@ -122,19 +193,53 @@ function App() {
       socket.off('KICKED', onKicked);
       socket.off('DRAW_STROKE', onDrawStroke);
       socket.off('CLEAR_CANVAS', onClearCanvas);
+      socket.off('GAME_STARTED', onGameStarted);
+      socket.off('YOUR_WORD', onYourWord);
+      socket.off('TIMER_TICK', onTimerTick);
+      socket.off('CORRECT_ANSWER', onCorrectAnswer);
+      socket.off('CHAT_MESSAGE', onChatMessage);
+      socket.off('TURN_END', onTurnEnd);
+      socket.off('GAME_END', onGameEnd);
     };
-  }, []); // 空の依存配列 = マウント時に1回だけ登録
+  }, []);
 
   // ===================================================================
-  // イベント送信ハンドラー
+  // 共有ハンドラー（複数画面から使用）
   // ===================================================================
 
   /**
-   * Canvas で線を引いたとき呼ばれる。
-   * 正規化済みの strokeData を DRAW_STROKE イベントで送信する。
+   * 線を引いたとき。正規化済みの strokeData を Socket 経由で送信する。
    */
   const handleStrokeEmit = (strokeData) => {
     socket.emit('DRAW_STROKE', { roomId: room.id, strokeData });
+  };
+
+  /**
+   * 全消去ボタン。確認後に自分のキャンバスをクリアし全員に通知する。
+   */
+  const handleLocalClear = () => {
+    if (window.confirm('キャンバスをすべて消去しますか？')) {
+      setClearTrigger(Date.now());
+      socket.emit('CLEAR_CANVAS', { roomId: room.id });
+    }
+  };
+
+  /**
+   * ホストがゲームを開始するとき。ラウンド数を指定して START_GAME を送る。
+   * @param {number} totalRounds - 選択されたラウンド数（1〜3）
+   */
+  const handleStartGame = (totalRounds) => {
+    socket.emit('START_GAME', { roomId: room.id, totalRounds });
+  };
+
+  /**
+   * ホストがプレイヤーをキックするとき。
+   * @param {string} targetId - キック対象のSocket ID
+   */
+  const handleKick = (targetId) => {
+    if (window.confirm('このプレイヤーを退出させますか？')) {
+      socket.emit('KICK_PLAYER', { roomId: room.id, targetId });
+    }
   };
 
   /**
@@ -145,29 +250,15 @@ function App() {
   const handleCopy = (text, label) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedMsg(`${label} をコピーしました！`);
-      setTimeout(() => setCopiedMsg(''), 2000); // 2秒後に消す
+      setTimeout(() => setCopiedMsg(''), 2000);
     });
   };
 
   /**
-   * 「全消去」ボタンが押されたとき。
-   * 確認ダイアログを表示してから自分のキャンバスをクリアし、
-   * サーバー経由で全員のキャンバスもクリアする。
+   * 画家がターンの結果（正解/タイムアップ）のイラストをサーバーに送る。
    */
-  const handleLocalClear = () => {
-    if (window.confirm('キャンバスをすべて消去しますか？')) {
-      setClearTrigger(Date.now()); // 自分のキャンバスをクリア
-      socket.emit('CLEAR_CANVAS', { roomId: room.id }); // 全員に通知
-    }
-  };
-
-  /**
-   * ホストが「×ボタン」を押してプレイヤーをキックするとき。
-   */
-  const handleKick = (targetId) => {
-    if (window.confirm('このプレイヤーを退出させますか？')) {
-      socket.emit('KICK_PLAYER', { roomId: room.id, targetId });
-    }
+  const handleSaveCanvas = (imageData) => {
+    socket.emit('SAVE_CANVAS', { roomId: room.id, imageData });
   };
 
   // ===================================================================
@@ -177,245 +268,101 @@ function App() {
   // キックされた場合の通知画面
   if (isKicked) {
     return (
-      <div className="app">
-        <div className="white-panel room-info">
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-secondary)' }}>
+        <div className="white-panel" style={{ padding: '48px', textAlign: 'center', maxWidth: 400 }}>
           <h2 style={{ color: 'var(--color-error)' }}>退出させられました</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>{error}</p>
           <button className="btn-primary" onClick={() => setIsKicked(false)}>
-            ロビーに戻る
+            受付画面に戻る
           </button>
         </div>
       </div>
     );
   }
 
-  // 未参加の場合はロビー画面を表示
+  // 未参加 → 受付画面（EntryScreen）
   if (!joined) {
     return (
-      <div className="app">
-        <Lobby initialRoomId={initialRoomId} />
-        {/* サーバーエラー（ルームなしなど）をトースト風に表示 */}
-        {error && <p className="global-error">{error}</p>}
-      </div>
+      <>
+        <EntryScreen initialRoomId={initialRoomId} />
+        {/* サーバーエラーをトースト風に表示（ルームが見つからないなど） */}
+        {error && (
+          <div style={{
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            background: '#334155', padding: '12px 24px', borderRadius: 30,
+            color: 'white', fontWeight: 600, boxShadow: 'var(--shadow-lg)'
+          }}>
+            {error}
+          </div>
+        )}
+      </>
     );
   }
 
-  // ── ゲーム画面 ──
-  // TODO: このブロックを GameBoard コンポーネントに移行する（Phase 4 続き）
-  const isHost = room.hostId === playerId;
+  // 共通の描画 props（LobbyScreen と GameBoard で同じものを渡す）
+  const drawingProps = {
+    room,
+    playerId,
+    onStrokeEmit: handleStrokeEmit,
+    externalStroke,
+    clearTrigger,
+    onLocalClear: handleLocalClear,
+    color, setColor,
+    size, setSize,
+    tool, setTool,
+    saveCanvasTrigger,
+    onSaveCanvas: handleSaveCanvas,
+  };
 
+  // 参加済み / ロビー待機中 または ゲーム中・リザルト
   return (
-    <div className="app">
-      <div className="game-container">
-
-        {/* 左: 描画ツールバー */}
-        <div className="toolbar-area">
-          <Toolbar
-            color={color} onColorChange={setColor}
-            size={size} onSizeChange={setSize}
-            tool={tool} onToolChange={setTool}
-            onClear={handleLocalClear}
+    <>
+      {room.status === 'LOBBY' ? (
+        <LobbyScreen
+          {...drawingProps}
+          onStartGame={handleStartGame}
+          onKick={handleKick}
+          handleCopy={handleCopy}
+        />
+      ) : room.status === 'PLAYING' ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-secondary)', padding: 20 }}>
+          <GameBoard
+            {...drawingProps}
+            word={word} 
+            messages={messages}
+            correctToast={correctToast}
+            onSendGuess={(text) => socket.emit('SUBMIT_GUESS', { roomId: room.id, text })}
           />
         </div>
-
-        {/* 中央: キャンバス本体 */}
-        <div className="white-panel canvas-area">
-          <Canvas
-            isPainter={true} // TODO: GameBoard移行時に room.currentPainterId === playerId に変更
-            color={color} size={size} tool={tool}
-            onStrokeEmit={handleStrokeEmit}
-            externalStroke={externalStroke}
-            clearTrigger={clearTrigger}
-            initialStrokes={room.strokes} // 入室時の履歴を復元
-          />
+      ) : room.status === 'RESULT' ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-secondary)', padding: 20 }}>
+          <div className="white-panel" style={{ padding: 40, textAlign: 'center' }}>
+            <h2>ゲーム終了！</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>リザルト画面はフェーズ5で実装されます</p>
+            <button className="btn-primary" onClick={() => window.location.href = '/'}>
+              トップに戻る
+            </button>
+          </div>
         </div>
+      ) : null}
 
-        {/* 右: サイドバー（ルーム情報・QR・プレイヤー一覧・ゲーム開始ボタン） */}
-        <div className="white-panel sidebar">
-
-          {/* ルームIDとステータスバッジ（クリックでコピー） */}
-          <div className="room-header">
-            <h2
-              className="room-id-copy"
-              onClick={() => handleCopy(room.id, 'ルームID')}
-              title="クリックでコピー"
-            >
-              ルーム: {room.id} 📋
-            </h2>
-            <span className="badge">{room.status}</span>
-          </div>
-
-          {/* QRコード（参加者がスマホでスキャンして参加できる） */}
-          {/* QR の値: ?room=XXXXX で直接入室できるURL */}
-          <div className="qr-container">
-            <p className="qr-hint">QRで募集</p>
-            <div className="qr-box">
-              <QRCodeSVG value={`${window.location.origin}/?room=${room.id}`} size={120} />
-            </div>
-            {/* URLクリックでコピー */}
-            <p
-              className="qr-url url-copy"
-              onClick={() => handleCopy(`${window.location.origin}/?room=${room.id}`, 'URL')}
-              title="クリックでコピー"
-            >
-              URLをコピー 📋<br />
-              {`${window.location.origin}/?room=${room.id}`}
-            </p>
-          </div>
-
-          {/* プレイヤー一覧とキックボタン（ホストのみ表示） */}
-          <div className="player-list-container">
-            <h3>参加者一覧 ({room.players.length})</h3>
-            <ul className="player-list">
-              {room.players.map((player) => (
-                <li key={player.id} className="player-item">
-                  <span className="player-name">
-                    {player.name}
-                    {/* 自分自身には「(あなた)」ラベルを付ける */}
-                    {player.id === playerId && <span className="me-label">(あなた)</span>}
-                  </span>
-                  {/* ホストのみ、自分以外のプレイヤーをキックできる */}
-                  {isHost && player.id !== playerId && (
-                    <button className="kick-btn" onClick={() => handleKick(player.id)}>×</button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* ゲーム開始ボタン（ホストのみ表示） */}
-          {/* TODO: onClick で socket.emit('START_GAME', ...) を追加する */}
-          {isHost && (
-            <div className="host-controls">
-              <button
-                className="btn-primary start-btn"
-                disabled={room.players.length < 2} // 2人以上必要
-              >
-                ゲームを開始する
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <style jsx="true">{`
-        .app {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 100vh;
-          background-color: var(--bg-secondary);
-          padding: 20px;
-          box-sizing: border-box;
-        }
-        /* ゲームエリア: 横3列レイアウト */
-        .game-container {
-          display: flex;
-          gap: 20px;
-          width: 100%;
-          max-width: 1280px;
-          height: 80vh;
-        }
-        .toolbar-area {
-          width: 180px;
-          flex-shrink: 0;
-        }
-        .canvas-area {
-          flex: 1;
-          height: 100%;
-          overflow: hidden;
-        }
-        .sidebar {
-          width: 280px;
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          flex-shrink: 0;
-        }
-        /* ルームID + ステータスバッジ */
-        .room-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 1.5rem;
-          border-bottom: 1px solid var(--border-color);
-          padding-bottom: 1rem;
-        }
-        .room-header h2 { margin: 0; font-size: 1.2rem; color: var(--color-primary); }
-        /* QRコードエリア */
-        .qr-container { display: flex; flex-direction: column; align-items: center; padding: 12px; background: white; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; border: 1px dashed var(--border-color); }
-        .qr-hint { margin: 0 0 8px 0; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
-        .qr-box { background: white; padding: 4px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .qr-url { margin: 8px 0 0 0; font-size: 0.7rem; color: var(--text-muted); word-break: break-all; }
-        /* ステータスバッジ */
-        .badge {
-          background: var(--color-primary-light);
-          padding: 4px 10px;
-          border-radius: 20px;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--color-primary);
-        }
-        /* プレイヤーリスト */
-        .player-list-container h3 { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem; }
-        .player-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; }
-        .player-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 10px 14px;
-          background: var(--bg-tertiary);
-          margin-bottom: 8px;
-          border-radius: 8px;
-        }
-        .player-name { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
-        .me-label { color: var(--color-primary); font-size: 0.7rem; font-weight: 600; }
-        /* キックボタン */
-        .kick-btn {
-          background: #ffe4e6; color: var(--color-error); border: none;
-          width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
-          font-weight: bold;
-        }
-        /* ゲーム開始ボタン（一番下に固定） */
-        .host-controls { margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color); }
-        .start-btn { width: 100%; padding: 0.8rem; }
-        /* ルームID: クリックできることを示すスタイル */
-        .room-id-copy {
-          cursor: pointer;
-          user-select: none;
-          transition: color 0.2s;
-        }
-        .room-id-copy:hover { color: var(--color-primary-dark); }
-        /* URL: クリックできることを示すスタイル */
-        .url-copy {
-          cursor: pointer;
-          user-select: none;
-          transition: opacity 0.2s;
-        }
-        .url-copy:hover { opacity: 0.7; }
-        /* コピー完了トースト */
+      {/* 共通のコピー完了通知（Toast） */}
+      {copiedMsg && <div className="copy-toast">{copiedMsg}</div>}
+      <style>{`
         .copy-toast {
           position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%);
           background: #22c55e; padding: 10px 22px; border-radius: 30px;
           color: white; font-weight: 600; font-size: 0.9rem;
           box-shadow: var(--shadow-lg);
           animation: fadeInUp 0.2s ease;
+          z-index: 1000;
         }
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateX(-50%) translateY(8px); }
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
-        /* エラートースト（画面下部に固定） */
-        .global-error {
-          position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-          background: #334155; padding: 12px 24px; border-radius: 30px;
-          color: white; font-weight: 600; box-shadow: var(--shadow-lg);
-        }
       `}</style>
-
-      {/* コピー完了トースト（緑色で2秒間表示） */}
-      {copiedMsg && <div className="copy-toast">{copiedMsg}</div>}
-    </div>
+    </>
   );
 }
 

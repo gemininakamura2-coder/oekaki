@@ -364,8 +364,11 @@ io.on('connection', (socket) => {
   // ─────────────────────────────────────────────────────────────────
   socket.on('disconnect', () => {
     console.log(`[DrawDraw] 切断: ${socket.id}`);
-    // TODO: 切断したプレイヤーをルームから除外して ROOM_UPDATE を送る処理
-    //       現状はサーバーのデータは残るが、次のフェーズで実装予定
+    // TODO(Phase 6): 切断時のクリーンアップ
+    //   1. 切断プレイヤーを leaveRoom() で除外 → 残りメンバーに ROOM_UPDATE
+    //   2. 切断者が画家だった場合 → clearInterval + endTurn() でターンスキップ
+    //   3. 切断者がホストだった場合 → leaveRoom() 内で自動ホスト移譲済み
+    //   4. 全員切断 → leaveRoom() がルーム自体を削除（timerInterval のクリアも必要）
   });
 });
 

@@ -25,21 +25,24 @@
  *   onLocalClear  - 全消去ボタン（自分のキャンバスクリア + Socket emit）
  *   color/setColor, size/setSize, tool/setTool - 描画ツールの状態
  *
- * TODO（次のフェーズで追加予定）:
- *   - CHAT_MESSAGE 受信によるチャット履歴表示
- *   - START_GAME ボタン（ロビー状態のホスト向け）
- *   - CORRECT_ANSWER 受信時のトースト通知
+ *   messages      - チャットメッセージ履歴（CHAT_MESSAGE受信分）
+ *   correctToast  - 正解時のトースト表示データ（winnerName, word, points）
+ *   saveCanvasTrigger - ギャラリー用キャンバス画像保存のトリガー
+ *   onSaveCanvas  - キャンバス画像をサーバーに送るコールバック
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Canvas from './Canvas';
 import Toolbar from './Toolbar';
+import PlayerList from './PlayerList';
 import { Timer, Trophy, Send } from 'lucide-react';
 
 const GameBoard = ({
   room,
   playerId,
   word,          // 自分が画家のときだけセットされるお題
+  messages = [], // チャット履歴
+  correctToast,  // 正解トースト
   onStrokeEmit,
   externalStroke,
   clearTrigger,
@@ -49,16 +52,19 @@ const GameBoard = ({
   color, setColor,
   size, setSize,
   tool, setTool,
+  saveCanvasTrigger,
+  onSaveCanvas,
 }) => {
   // 回答入力フォームのテキスト
   const [guess, setGuess] = useState('');
+  const messagesEndRef = useRef(null);
 
-  // 自分が今ターンの画家かどうか
-  // ロビー状態（LOBBY）のときはホストが仮の「画家」として描ける
-  const isPainter = room.currentPainterId === playerId || room.status === 'LOBBY';
+  const isPainter = room.currentPainterId === playerId;
 
-  // まだゲームが始まっていない（参加者待機中）
-  const isLobby = room.status === 'LOBBY';
+  // チャット更新時に自動スクロール
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   /**
    * 回答フォームのサブミット処理。
@@ -72,7 +78,16 @@ const GameBoard = ({
   };
 
   return (
-    <div className="game-board">
+    <div className="game-board" style={{ position: 'relative' }}>
+
+      {/* 正解時のトースト通知 */}
+      {correctToast && (
+        <div className="correct-toast">
+          <div className="toast-title">🎊 {correctToast.winnerName} さんが正解！</div>
+          <div className="toast-word">お題: <span>{correctToast.word}</span></div>
+          <div className="toast-points">(+{correctToast.points}pt)</div>
+        </div>
+      )}
 
       {/* ── ヘッダーバー ── */}
       <div className="game-header white-panel">
@@ -87,17 +102,15 @@ const GameBoard = ({
 
         {/* 中央: 画家にはお題を表示、回答者には「当ててね」のメッセージ */}
         <div className="header-center">
-          {isPainter && !isLobby ? (
+          {isPainter ? (
             // 画家用: お題を大きく表示（他の人には見えない）
             <div className="word-display">
               <span className="label">お題:</span>
               <span className="word">{word}</span>
             </div>
           ) : (
-            // 回答者 or ロビー中: 状態に応じたメッセージ
-            <div className="status-display">
-              {isLobby ? '参加者待機中...' : '何を描いているか当てよう！'}
-            </div>
+            // 回答者: もわかる?のメッセージ
+            <div className="status-display">何を描いているか当てよう！</div>
           )}
         </div>
 
@@ -132,8 +145,10 @@ const GameBoard = ({
             onStrokeEmit={onStrokeEmit}
             externalStroke={externalStroke}
             clearTrigger={clearTrigger}
-            // ゲーム中はターン開始でキャンバスがサーバー側からリセットされるため
-            // initialStrokes はロビー時のみ使用（今後調整予定）
+            saveCanvasTrigger={saveCanvasTrigger}
+            onSaveCanvas={onSaveCanvas}
+          // ゲーム中はターン開始でキャンバスがサーバー側からリセットされるため
+          // initialStrokes はロビー時のみ使用（今後調整予定）
           />
         </div>
 
@@ -141,32 +156,29 @@ const GameBoard = ({
         <div className="sidebar white-panel">
 
           {/* プレイヤー一覧とスコア */}
-          <div className="sidebar-section players">
-            <h3>参加者 ({room.players.length})</h3>
-            <ul className="player-list">
-              {room.players.map((p) => (
-                <li
-                  key={p.id}
-                  className={`player-item ${
-                    // 今ターンの画家を青くハイライト
-                    p.id === room.currentPainterId ? 'painting' : ''
-                  }`}
-                >
-                  <span className="name">
-                    {p.name}
-                    {/* 今ターンの画家にはパレット絵文字を表示 */}
-                    {p.id === room.currentPainterId && ' 🎨'}
-                  </span>
-                  <span className="pts">{p.points}</span>
-                </li>
-              ))}
-            </ul>
+          <PlayerList
+            players={room.players}
+            playerId={playerId}
+            hostId={room.hostId}
+            currentPainterId={room.currentPainterId}
+            mode="game"
+          />
+
+          {/* チャット履歴表示エリア */}
+          <div className="chat-container">
+            {messages.map((m, i) => (
+              <div key={i} className="chat-message">
+                <span className="chat-author">{m.playerName}:</span>
+                <span className="chat-text">{m.text}</span>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* 回答入力エリア */}
           <div className="sidebar-section guess-area">
             {/* 回答者かつゲーム中のときのみ入力フォームを表示 */}
-            {!isPainter && !isLobby && (
+            {!isPainter && (
               <form onSubmit={handleSubmitGuess} className="guess-form">
                 <input
                   type="text"
@@ -180,11 +192,9 @@ const GameBoard = ({
               </form>
             )}
             {/* 画家への励ましメッセージ */}
-            {isPainter && !isLobby && (
+            {isPainter && (
               <p className="hint">あなたは画家です！伝わるように描こう！</p>
             )}
-            {/* ロビー待機中のメッセージ */}
-            {isLobby && <p className="hint">開始を待っています...</p>}
           </div>
         </div>
       </div>
@@ -234,25 +244,62 @@ const GameBoard = ({
         /* 右サイドバー */
         .sidebar { width: 300px; display: flex; flex-direction: column; padding: 20px; }
         .sidebar-section { margin-bottom: 20px; }
-        .sidebar-section.players { flex: 1; overflow-y: auto; }
         .sidebar-section h3 { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px; }
 
-        /* プレイヤーリスト */
-        .player-list { list-style: none; padding: 0; margin: 0; }
-        .player-item {
-          display: flex; justify-content: space-between;
-          padding: 10px 14px; background: var(--bg-tertiary);
-          border-radius: 8px; margin-bottom: 8px; border: 1px solid transparent;
+        /* チャット履歴 */
+        .chat-container {
+          flex: 1;
+          overflow-y: auto;
+          background: #f8fafc;
+          border-radius: 12px;
+          padding: 12px;
+          margin-bottom: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          border: 1px solid var(--border-color);
         }
-        /* 今ターンの画家をハイライト */
-        .player-item.painting { background: var(--color-primary-light); border-color: var(--color-primary); }
-        .player-item .pts { font-weight: 700; color: var(--color-primary); }
+        .chat-message {
+          font-size: 0.85rem;
+          word-break: break-all;
+        }
+        .chat-author {
+          font-weight: 700;
+          color: var(--text-secondary);
+          margin-right: 6px;
+        }
 
         /* 回答フォーム */
         .guess-form { display: flex; gap: 10px; }
         .guess-form input { flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; }
         .btn-primary.icon-only { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; padding: 0; }
         .hint { font-size: 0.85rem; color: var(--text-muted); text-align: center; font-weight: 500; }
+
+        /* トースト通知 */
+        .correct-toast {
+          position: absolute;
+          top: 30%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(34, 197, 94, 0.95);
+          backdrop-filter: blur(8px);
+          color: white;
+          padding: 24px 48px;
+          border-radius: 20px;
+          text-align: center;
+          box-shadow: 0 10px 25px rgba(34, 197, 94, 0.4);
+          z-index: 100;
+          animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .toast-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 8px; }
+        .toast-word { font-size: 1.2rem; font-weight: 600; }
+        .toast-word span { font-size: 1.6rem; font-weight: 800; color: #ffeb3b; margin-left: 8px; }
+        .toast-points { font-size: 1rem; font-weight: 600; opacity: 0.9; margin-top: 4px; }
+        
+        @keyframes popIn {
+          0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8); }
+          100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
       `}</style>
     </div>
   );
