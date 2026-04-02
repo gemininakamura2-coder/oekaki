@@ -1,33 +1,65 @@
+/**
+ * Lobby.jsx — ロビー画面コンポーネント（ゲーム開始前の入口）
+ *
+ * 役割:
+ *   - プレイヤー名の入力を受け付ける
+ *   - 「新しい部屋を作る」ボタンで CREATE_ROOM イベントを送信する
+ *   - 「参加する」ボタンでルームIDを入力して JOIN_ROOM イベントを送信する
+ *
+ * 通信:
+ *   socket.emit('CREATE_ROOM', { playerName })
+ *   socket.emit('JOIN_ROOM', { roomId, playerName })
+ *   → 結果は App.jsx 側の 'JOIN_SUCCESS' リスナーで受け取る
+ *
+ * Props:
+ *   initialRoomId - URLパラメータ (?room=XXXXX) から渡されるルームID。
+ *                   QRコードをスキャンしてアクセスした場合に使用。
+ */
+
 import React, { useState } from 'react';
 import { socket } from '../socket';
 import { Users, Plus, LogIn } from 'lucide-react';
 
 const Lobby = ({ initialRoomId }) => {
   const [playerName, setPlayerName] = useState('');
+  // URLパラメータで渡されたルームIDがあれば初期値として設定する（QRコード対応）
   const [roomId, setRoomId] = useState(initialRoomId || '');
-  const [error, setError] = useState('');
-  const [nameError, setNameError] = useState('');
-  const [roomError, setRoomError] = useState('');
+  const [nameError, setNameError] = useState('');  // 名前フィールドのバリデーションエラー
+  const [roomError, setRoomError] = useState('');  // ルームIDフィールドのバリデーションエラー
+  const [error, setError] = useState('');           // その他の汎用エラー
 
+  /**
+   * 「新しい部屋を作る」ボタン処理。
+   * Socket に接続してから CREATE_ROOM イベントを送る。
+   * 応答（JOIN_SUCCESS）は App.jsx のリスナーで受け取る。
+   */
   const handleCreateRoom = () => {
+    // エラーをリセット
     setNameError('');
     setRoomError('');
     setError('');
 
-    if (!playerName) return setNameError('名前を入力してください');
+    if (!playerName.trim()) return setNameError('名前を入力してください');
+
+    // ここで初めて Socket.io に接続する（ページ読み込み時は接続しない設計）
     socket.connect();
-    socket.emit('CREATE_ROOM', { playerName });
+    socket.emit('CREATE_ROOM', { playerName: playerName.trim() });
   };
 
+  /**
+   * 「参加する」ボタン処理。
+   * ルームIDと名前の両方が入力されていることを確認してから JOIN_ROOM を送る。
+   */
   const handleJoinRoom = () => {
     setNameError('');
     setRoomError('');
     setError('');
 
-    if (!playerName) return setNameError('名前を入力してください');
-    if (!roomId) return setRoomError('ルームIDを入力してください');
+    if (!playerName.trim()) return setNameError('名前を入力してください');
+    if (!roomId.trim()) return setRoomError('ルームIDを入力してください');
+
     socket.connect();
-    socket.emit('JOIN_ROOM', { roomId, playerName });
+    socket.emit('JOIN_ROOM', { roomId: roomId.trim(), playerName: playerName.trim() });
   };
 
   return (
@@ -36,6 +68,7 @@ const Lobby = ({ initialRoomId }) => {
         <h1 className="logo">DrawDraw</h1>
         <p className="subtitle">リアルタイムお絵描きクイズ</p>
 
+        {/* ── 名前入力フォーム ── */}
         <div className="form-group" style={{ marginBottom: nameError ? '1rem' : '2.5rem' }}>
           <label>あなたの名前</label>
           <input
@@ -45,15 +78,17 @@ const Lobby = ({ initialRoomId }) => {
             value={playerName}
             onChange={(e) => {
               setPlayerName(e.target.value);
-              setNameError('');
+              setNameError(''); // 入力が変わったらエラーをクリア
             }}
           />
           {nameError && <p className="field-error">{nameError}</p>}
         </div>
 
+        {/* サーバーからの汎用エラー（ルームが見つからないなど） */}
         {error && <p className="global-error-text">{error}</p>}
 
         <div className="actions">
+          {/* ── 部屋を作るボタン ── */}
           <button className="btn-primary create-btn" onClick={handleCreateRoom}>
             <Plus size={20} />
             新しい部屋を作る
@@ -63,6 +98,7 @@ const Lobby = ({ initialRoomId }) => {
             <span>または</span>
           </div>
 
+          {/* ── 部屋に参加するフォーム ── */}
           <div className="join-container">
             <div className="join-group">
               <input
@@ -71,6 +107,7 @@ const Lobby = ({ initialRoomId }) => {
                 placeholder="ルームID (5文字)"
                 value={roomId}
                 onChange={(e) => {
+                  // 大文字に自動変換（ルームIDは大文字英数字）
                   setRoomId(e.target.value.toUpperCase());
                   setRoomError('');
                 }}
@@ -125,6 +162,7 @@ const Lobby = ({ initialRoomId }) => {
           font-size: 0.95rem;
           font-weight: 600;
         }
+        /* サーバーエラー（ルームなしなど）の表示 */
         .global-error-text {
           color: var(--color-error);
           font-size: 0.95rem;
@@ -162,6 +200,7 @@ const Lobby = ({ initialRoomId }) => {
           font-size: 1.1rem;
           padding: 1rem;
         }
+        /* 「または」セパレーター */
         .divider {
           display: flex;
           align-items: center;

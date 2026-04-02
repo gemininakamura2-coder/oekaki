@@ -1,13 +1,45 @@
-import React from 'react';
-import { Eraser, Trash2, Minus, Plus } from 'lucide-react';
+/**
+ * Toolbar.jsx — 描画ツールバーコンポーネント
+ *
+ * 役割:
+ *   - カラーパレット（12色）を表示し、色の選択を管理する
+ *   - ペンの太さ（4段階）の選択を管理する
+ *   - 消しゴムモードと全消去ボタンを提供する
+ *   - ツールの状態は Canvas.jsx の親（App.jsx or GameBoard.jsx）が持ち、
+ *     このコンポーネントは「表示と入力」だけを担う（Controlled Component）
+ *
+ * Props:
+ *   color         - 現在選択中の色コード（'#xxxxxx'）
+ *   onColorChange - 色が変更されたときのコールバック
+ *   size          - 現在のペンサイズ（px）
+ *   onSizeChange  - サイズが変更されたときのコールバック
+ *   tool          - 現在のツール ('pen' | 'eraser')
+ *   onToolChange  - ツールが変更されたときのコールバック
+ *   onClear       - 全消去ボタンが押されたときのコールバック
+ */
 
+import React from 'react';
+import { Eraser, Trash2 } from 'lucide-react';
+
+// ── お絵描き用カラーパレット（12色）──
+// デザインシステム (implementation_plan.md セクション7.3) で定義した色
 const COLORS = [
-  '#000000', '#4b5563', '#ef4444', '#f97316',
-  '#f59e0b', '#22c55e', '#10b981', '#06b6d4',
-  '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899'
+  '#000000', // 黒
+  '#4b5563', // グレー
+  '#ef4444', // 赤
+  '#f97316', // オレンジ
+  '#f59e0b', // 黄
+  '#22c55e', // 緑
+  '#10b981', // エメラルド
+  '#06b6d4', // シアン
+  '#3b82f6', // 青
+  '#6366f1', // インディゴ
+  '#8b5cf6', // 紫
+  '#ec4899', // ピンク
 ];
 
-const SIZES = [2, 5, 10, 20];
+// ── ペンサイズの選択肢（px単位）──
+const SIZES = [2, 5, 10, 20]; // 細・中・太・極太
 
 const Toolbar = ({
   color,
@@ -16,20 +48,25 @@ const Toolbar = ({
   onSizeChange,
   tool,
   onToolChange,
-  onClear
+  onClear,
 }) => {
   return (
     <div className="toolbar-container white-panel">
-      {/* カラーパレット */}
+
+      {/* ── カラーパレット ── */}
       <div className="toolbar-section">
         <label>カラー</label>
         <div className="color-grid">
           {COLORS.map((c) => (
             <button
               key={c}
-              className={`color-btn ${color === c && tool === 'pen' ? 'active' : ''}`}
+              className={`color-btn ${
+                // 消しゴムモード中は色ボタンをアクティブにしない
+                color === c && tool === 'pen' ? 'active' : ''
+              }`}
               style={{ backgroundColor: c }}
               onClick={() => {
+                // 色を選んだときは自動的に pen モードに戻す
                 onColorChange(c);
                 onToolChange('pen');
               }}
@@ -38,7 +75,7 @@ const Toolbar = ({
         </div>
       </div>
 
-      {/* 筆の太さ */}
+      {/* ── ペンサイズ選択 ── */}
       <div className="toolbar-section">
         <label>太さ: {size}px</label>
         <div className="size-controls">
@@ -47,15 +84,25 @@ const Toolbar = ({
               key={s}
               className={`size-btn ${size === s ? 'active' : ''}`}
               onClick={() => onSizeChange(s)}
+              title={`${s}px`}
             >
-              <div style={{ width: s, height: s, borderRadius: '50%', backgroundColor: 'currentColor' }} />
+              {/* サイズの視覚的なプレビュー（丸の大きさでサイズを表現） */}
+              <div
+                style={{
+                  width: s,
+                  height: s,
+                  borderRadius: '50%',
+                  backgroundColor: 'currentColor',
+                }}
+              />
             </button>
           ))}
         </div>
       </div>
 
-      {/* ツールボタン */}
+      {/* ── ツールボタン ── */}
       <div className="toolbar-section tools">
+        {/* 消しゴム: 白色で上書きすることで「消す」を実現（Canvas.jsx 参照） */}
         <button
           className={`tool-btn ${tool === 'eraser' ? 'active' : ''}`}
           onClick={() => onToolChange('eraser')}
@@ -65,6 +112,7 @@ const Toolbar = ({
           <span>消しゴム</span>
         </button>
 
+        {/* 全消去: キャンバス全体を白で塗りつぶす + 他全員にも伝える */}
         <button
           className="tool-btn danger"
           onClick={onClear}
@@ -89,6 +137,7 @@ const Toolbar = ({
           color: var(--text-secondary);
           margin-bottom: 12px;
         }
+        /* カラーパレットを4列グリッドで表示 */
         .color-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -103,8 +152,10 @@ const Toolbar = ({
           transition: transform 0.2s;
         }
         .color-btn:hover { transform: scale(1.1); }
+        /* 選択中の色はボーダーを表示してハイライト */
         .color-btn.active { border-color: var(--color-primary); box-shadow: var(--shadow-sm); }
 
+        /* サイズ選択ボタン群 */
         .size-controls {
           display: flex;
           align-items: center;
@@ -156,13 +207,9 @@ const Toolbar = ({
           color: var(--color-primary);
           border-color: var(--color-primary);
         }
-        .tool-btn.danger {
-          color: var(--color-error);
-        }
-        .tool-btn.danger:hover {
-          background: #ffe4e6;
-          border-color: #fecaca;
-        }
+        /* 全消去は赤系の danger スタイル */
+        .tool-btn.danger { color: var(--color-error); }
+        .tool-btn.danger:hover { background: #ffe4e6; border-color: #fecaca; }
       `}</style>
     </div>
   );
