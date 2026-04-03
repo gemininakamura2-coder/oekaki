@@ -46,6 +46,14 @@ const Canvas = ({
   // ※ canvas.width/height はDPRスケール後の値なので別管理が必要
   const logicalSizeRef = useRef({ width: 0, height: 0 });
 
+  // isPainter と onSaveCanvas を ref で保持する。
+  // useEffect の依存配列に入れると、ターン切替時の isPainter 変更や
+  // 親の再レンダリングによる onSaveCanvas の参照変更で保存が再発火してしまうため。
+  const isPainterRef = useRef(isPainter);
+  isPainterRef.current = isPainter;
+  const onSaveCanvasRef = useRef(onSaveCanvas);
+  onSaveCanvasRef.current = onSaveCanvas;
+
   const [isDrawing, setIsDrawing] = useState(false); // 現在ドラッグ中かどうか
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 }); // 前のマウス/タッチ位置
 
@@ -59,17 +67,18 @@ const Canvas = ({
   }, [clearTrigger]);
 
   // ── キャンバス画像のエクスポート ──
-  // 正解が出た時やタイムアップ時に、ギャラリー保存用の画像データを取り出す
+  // 正解が出た時やタイムアップ時に、ギャラリー保存用の画像データを取り出す。
+  // 依存配列は saveCanvasTrigger だけに絞り、isPainter/onSaveCanvas の変化では発火しない。
   useEffect(() => {
-    if (saveCanvasTrigger > 0 && isPainter) {
+    if (saveCanvasTrigger > 0 && isPainterRef.current) {
       const canvas = canvasRef.current;
-      if (canvas && onSaveCanvas) {
+      if (canvas && onSaveCanvasRef.current) {
         // PNGのBase64データとして取得
         const imageData = canvas.toDataURL('image/png');
-        onSaveCanvas(imageData);
+        onSaveCanvasRef.current(imageData);
       }
     }
-  }, [saveCanvasTrigger, isPainter, onSaveCanvas]);
+  }, [saveCanvasTrigger]);
 
   /**
    * キャンバス全体を白で塗りつぶす（全消去）。

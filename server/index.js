@@ -76,6 +76,7 @@ function startTurn(roomId) {
   room.currentWord = gameManager.pickWord(room);
   room.timeLeft = 100;
   room.strokes = []; // ターン開始時にサーバーの描画履歴をリセット
+  room.currentTurnGuessed = false; // 正解フラグをリセット（SAVE_CANVAS で wasGuessed として使用）
 
   console.log(
     `[DrawDraw] ターン開始 | ルーム: ${roomId} | 画家: ${painterId} | お題: ${room.currentWord} | Round: ${room.round}/${room.totalRounds}`
@@ -110,9 +111,12 @@ function startTurn(roomId) {
     io.to(roomId).emit('TIMER_TICK', { timeLeft: r.timeLeft });
 
     // 0秒になったらタイムアップ（誰も正解できなかった）
+    // 3秒の猶予を設けてクライアントがキャンバスを保存する時間を確保する。
+    // これがないと最終ターンで GAME_END が先に送信され、
+    // ギャラリーにイラストが含まれない。
     if (r.timeLeft <= 0) {
       clearInterval(r.timerInterval);
-      endTurn(roomId, 'timeout');
+      setTimeout(() => endTurn(roomId, 'timeout'), 3000);
     }
   }, 1000);
 }
@@ -308,6 +312,9 @@ io.on('connection', (socket) => {
         players: room.players, // 更新後のスコアも一緒に送る
       });
 
+      // 正解フラグを立てる（SAVE_CANVAS で wasGuessed として使用）
+      room.currentTurnGuessed = true;
+
       // タイマーを止めてターンを終わらせる（3秒後）
       clearInterval(room.timerInterval);
       setTimeout(() => endTurn(roomId, 'correct'), 3000);
@@ -337,7 +344,7 @@ io.on('connection', (socket) => {
       painter.name,
       room.currentWord,
       imageData,
-      true // wasGuessed: 正解が出た（CORRECT_ANSWER のタイミングで送信）
+      room.currentTurnGuessed // 正解が出たかどうか（startTurn で false、SUBMIT_GUESS 正解時に true）
     );
   });
 

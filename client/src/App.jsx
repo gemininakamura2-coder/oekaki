@@ -23,9 +23,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { socket } from './socket';
+import confetti from 'canvas-confetti';
 import EntryScreen from './components/EntryScreen';
 import LobbyScreen from './components/LobbyScreen';
 import GameBoard from './components/GameBoard';
+import Results from './components/Results';
 
 function App() {
   // ── ルーム・プレイヤー情報 ──
@@ -121,6 +123,8 @@ function App() {
       } : null);
       setMessages([]);
       setCorrectToast(null);
+      // 前ターンの保存トリガーをリセット（isPainter変更時の再発火を防ぐ）
+      setSaveCanvasTrigger(0);
     };
 
     // YOUR_WORD: 自分がお題の画家のときにお題を受け取る
@@ -131,6 +135,13 @@ function App() {
     // TIMER_TICK: 1秒ごとのタイマー更新
     const onTimerTick = ({ timeLeft }) => {
       setRoom((prev) => prev ? { ...prev, timeLeft } : null);
+      // タイムアップ（timeLeft === 0）時にキャンバスを保存する。
+      // TURN_END ではなくここで行う理由: 最終ターンのタイムアウトでは
+      // TURN_END が送信されず GAME_END が直接送信されるため、
+      // TURN_END に頼ると最終ターンの絵が保存されない。
+      if (timeLeft === 0) {
+        setSaveCanvasTrigger(Date.now());
+      }
     };
 
     // CORRECT_ANSWER: 誰かが正解したとき
@@ -141,6 +152,8 @@ function App() {
         word: data.word,
         points: data.points
       });
+      // 紙吹雪演出
+      confetti({ particleCount: 120, spread: 90, origin: { x: 0.5, y: 0.3 } });
       // 正解が出た瞬間に、画家の画面ではキャンバスを画像化してサーバーに送る
       setSaveCanvasTrigger(Date.now());
     };
@@ -152,10 +165,7 @@ function App() {
 
     // TURN_END: ターンが終了して次のターンに移る前
     const onTurnEnd = ({ reason, nextPainterId }) => {
-      if (reason === 'timeout') {
-        // タイムアップ時もギャラリーに残すため画像化をトリガー
-        setSaveCanvasTrigger(Date.now());
-      }
+      // タイムアウト保存は TIMER_TICK(0) で処理済みなのでここでは不要
       setRoom((prev) => prev ? { ...prev, currentPainterId: nextPainterId } : null);
       setWord('');
       // 正解トーストは数秒間残るためここでは消さなくても良いが、ターン終了時には一応クリア
@@ -167,6 +177,8 @@ function App() {
       setRoom((prev) => prev ? { ...prev, status: 'RESULT' } : null);
       setRankings(rankings);
       setGallery(gallery);
+      // ゲーム終了時にトリガーをリセット
+      setSaveCanvasTrigger(0);
     };
 
     // イベントリスナーを登録
@@ -334,15 +346,12 @@ function App() {
           />
         </div>
       ) : room.status === 'RESULT' ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-secondary)', padding: 20 }}>
-          <div className="white-panel" style={{ padding: 40, textAlign: 'center' }}>
-            <h2>ゲーム終了！</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>リザルト画面はフェーズ5で実装されます</p>
-            <button className="btn-primary" onClick={() => window.location.href = '/'}>
-              トップに戻る
-            </button>
-          </div>
-        </div>
+        <Results
+          rankings={rankings}
+          gallery={gallery}
+          playerId={playerId}
+          room={room}
+        />
       ) : null}
 
       {/* 共通のコピー完了通知（Toast） */}
