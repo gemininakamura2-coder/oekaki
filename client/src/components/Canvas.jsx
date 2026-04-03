@@ -172,6 +172,31 @@ const Canvas = ({
     ctx.closePath();
   };
 
+  // ── スマホ向けスクロール防止対策 ──
+  // React17以降、onTouchMove はデフォルトで passive: true として登録されるため、
+  // Reactのハンドラー内で e.preventDefault() を呼んでもスクロールを防げない。
+  // そのため、ネイティブのイベントリスナーとして passive: false で直接登録し、
+  // ドラッグ中の画面のスクロールやPull-to-Refreshを完全に無効化する。
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const preventScroll = (e) => {
+      // マルチタッチ時のズーム操作や、スクロール操作を無効化
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    canvas.addEventListener('touchstart', preventScroll, { passive: false });
+    canvas.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', preventScroll);
+      canvas.removeEventListener('touchmove', preventScroll);
+    };
+  }, []);
+
   // ── マウス/タッチイベントハンドラー ──
 
   /** ドラッグ開始: 描画中フラグを立てて開始地点を記録 */
