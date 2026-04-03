@@ -13,12 +13,13 @@
  *
  * 設計方針:
  *   - 状態管理（room, playerId, joined 等）と Socket リスナーはここに集約する
- *   - 各画面コンポーネント（EntryScreen/LobbyScreen/GameBoard）は表示に専念する
+ *   - 各画面コンポーネント（EntryScreen/LobbyScreen/GameBoard/Results）は表示に専念する
  *   - 描画ツールの状態（color, size, tool）もここが保持し各画面に渡す
  *
- * TODO（Phase 4 続き）:
- *   - GAME_STARTED / YOUR_WORD / TIMER_TICK / CORRECT_ANSWER / TURN_END / GAME_END
- *     のSocketリスナーを追加して GameBoard と接続する
+ * 実装済みSocketリスナー（全13種）:
+ *   JOIN_SUCCESS, ERROR, ROOM_UPDATE, KICKED, DRAW_STROKE, CLEAR_CANVAS,
+ *   GAME_STARTED, YOUR_WORD, TIMER_TICK, CORRECT_ANSWER, CHAT_MESSAGE,
+ *   TURN_END, GAME_END
  */
 
 import React, { useState, useEffect } from 'react';

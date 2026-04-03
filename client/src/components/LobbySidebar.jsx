@@ -227,19 +227,6 @@ const LobbySidebar = ({
           font-weight: 500;
         }
         .waiting-msg p { margin: 4px 0; }
-
-        /* ===================================================
-           スマホ向けレイアウト (レスポンシブ)
-        =================================================== */
-        @media (max-width: 900px) {
-          .lobby-sidebar { 
-            width: 100%; 
-            height: auto; 
-            padding: 16px;
-          }
-          .qr-section { display: none; } /* スマホの同じ画面ではQRは不要 */
-          .start-btn { padding: 12px; }
-        }
       `}</style>
     </div>
   );

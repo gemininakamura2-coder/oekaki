@@ -297,10 +297,8 @@ const Canvas = ({
       />
       <style jsx="true">{`
         .canvas-wrapper {
-          aspect-ratio: 1 / 1;
-          height: 100%; /* PC (flex-row) では高さいっぱいに基準を置く */
-          max-width: 100%;
-          max-height: 100%;
+          width: 100%;
+          height: 100%;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -309,13 +307,7 @@ const Canvas = ({
           overflow: hidden;
           border: 1px solid var(--border-color);
           box-shadow: var(--shadow-md);
-          touch-action: none;
-        }
-        @media (max-width: 900px) {
-          .canvas-wrapper {
-            height: auto;
-            width: 100%; /* スマホ (flex-col) では横幅いっぱいに基準を置く */
-          }
+          touch-action: none; /* スマホでのスクロール無効化（描画中に画面が動かないように） */
         }
         .main-canvas {
           width: 100%;
