@@ -225,23 +225,38 @@ const GameBoard = ({
         .word-display .word { font-size: 1.5rem; font-weight: 800; color: var(--color-primary); margin-left: 10px; }
         .status-display { color: var(--text-secondary); font-weight: 600; }
 
-        /* メインレイアウト: 横3列 */
-        .main-layout { display: flex; gap: 20px; flex: 1; min-height: 0; }
+        /* メインレイアウト: 横3列 (スマホ時は縦1列) */
+        .main-layout {
+          display: flex;
+          gap: 20px;
+          flex: 1;
+          min-height: 0;
+          min-width: 0;
+        }
 
-        /* ツールバー: 非表示時はアニメーションで縮む */
-        .toolbar-wrapper { width: 180px; transition: all 0.3s; }
+        /* ツールバー */
+        .toolbar-wrapper { width: 180px; transition: all 0.3s; flex-shrink: 0; }
         .toolbar-wrapper.hidden {
           opacity: 0;
-          pointer-events: none; /* クリックを無効化 */
+          pointer-events: none;
           transform: translateX(-20px);
           width: 0;
           margin-right: -20px;
         }
 
-        .canvas-container { flex: 1; position: relative; border-radius: 16px; overflow: hidden; }
+        /* キャンバス領域: キャンバスを中心に配置するためのFlexbox */
+        .canvas-container {
+          flex: 1;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          position: relative;
+          min-width: 0;
+          min-height: 0;
+        }
 
         /* 右サイドバー */
-        .sidebar { width: 300px; display: flex; flex-direction: column; padding: 20px; }
+        .sidebar { width: 300px; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; }
         .sidebar-section { margin-bottom: 20px; }
         .sidebar-section h3 { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px; }
 
@@ -298,6 +313,47 @@ const GameBoard = ({
         @keyframes popIn {
           0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8); }
           100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* ===================================================
+           スマホ向けレイアウト (レスポンシブ)
+        =================================================== */
+        @media (max-width: 900px) {
+          .game-board {
+            height: auto;
+            min-height: 100vh;
+            padding-bottom: 20px;
+          }
+          .main-layout {
+            flex-direction: column;
+            gap: 16px;
+          }
+          
+          /* ツールバーを上部に横方向へ配置 */
+          .toolbar-wrapper {
+            width: 100%;
+            order: 1;
+          }
+          .toolbar-wrapper.hidden {
+            display: none;
+          }
+
+          /* キャンバスは中央 */
+          .canvas-container {
+            order: 2;
+            width: 100%;
+          }
+
+          /* サイドバー（回答・チャット）は下部へ */
+          .sidebar {
+            width: 100%;
+            order: 3;
+            min-height: 400px;
+          }
+          
+          /* ヘッダーの文字サイズを小さく */
+          .game-header { padding: 12px 16px; }
+          .word-display .word { font-size: 1.2rem; }
         }
       `}</style>
         </div>

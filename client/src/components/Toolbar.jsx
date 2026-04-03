@@ -210,6 +210,27 @@ const Toolbar = ({
         /* 全消去は赤系の danger スタイル */
         .tool-btn.danger { color: var(--color-error); }
         .tool-btn.danger:hover { background: #ffe4e6; border-color: #fecaca; }
+
+        /* ===================================================
+           スマホ向けレイアウト (レスポンシブ)
+        =================================================== */
+        @media (max-width: 900px) {
+          .toolbar-container {
+            flex-direction: row;
+            flex-wrap: wrap;
+            padding: 12px;
+            gap: 16px;
+            align-items: flex-end;
+          }
+          .toolbar-section { flex: 1; min-width: 140px; }
+          .toolbar-section label { margin-bottom: 8px; }
+          .color-grid { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+          .color-btn { width: auto; aspect-ratio: 1; border-radius: 4px; }
+          .size-btn { height: 32px; }
+          .tools { flex-direction: row; gap: 8px; }
+          .tool-btn { flex: 1; padding: 10px; justify-content: center; }
+          .tool-btn span { display: none; } /* アイコンのみにする */
+        }
       `}</style>
     </div>
   );

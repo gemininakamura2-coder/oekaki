@@ -137,7 +137,41 @@ const LobbyScreen = ({
         }
         .canvas-body {
           flex: 1;
-          min-height: 0; /* flexbox で縮小できるように */
+          min-height: 0;
+          min-width: 0;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        /* ===================================================
+           スマホ向けレイアウト (レスポンシブ)
+        =================================================== */
+        @media (max-width: 900px) {
+          .lobby-screen {
+            height: auto;
+            min-height: 100vh;
+          }
+          .lobby-layout {
+            flex-direction: column;
+            height: auto;
+            gap: 16px;
+          }
+          
+          /* ツールバーを上部に配置 */
+          .toolbar-area {
+            width: 100%;
+            order: 1;
+          }
+
+          /* キャンバスは中央 */
+          .canvas-wrapper-outer {
+            order: 2;
+            width: 100%;
+          }
+
+          /* サイドバー（参加者・ゲーム開始）は下部へ */
+          /* 注意: LobbySidebar単体でもwidth: 100%になるように修正が必要 */
         }
       `}</style>
     </div>

@@ -206,6 +206,17 @@ const EntryScreen = ({ initialRoomId }) => {
           gap: 8px;
           padding: 1rem 1.5rem;
         }
+
+        /* ===================================================
+           スマホ向けレイアウト (レスポンシブ)
+        =================================================== */
+        @media (max-width: 768px) {
+          .entry-panel { padding: 32px 24px; }
+          .logo { font-size: 2.8rem; }
+          .subtitle { margin-bottom: 2.5rem; }
+          .join-group { flex-direction: column; }
+          .join-btn { width: 100%; justify-content: center; }
+        }
       `}</style>
     </div>
   );
